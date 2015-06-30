@@ -17,9 +17,9 @@ fi
 ext="${1##*.}"
 
 # check if the file has a proper extension
-if [[ $ext == $1 ]];
+if [[ "$ext" == ".rst" ]];
 then
-    echo "WARNING: sorry, this version just works for files with extension"
+    echo "WARNING: sorry, this version just works for files with rst extension"
     exit 1
 fi
 
