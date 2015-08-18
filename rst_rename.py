@@ -4,6 +4,10 @@
 # This script renames a file in argv[1] to argv[2] and replaces all the references
 # in any .rst file.
 # The file to be replaced and the .rst files should be in a subfolder of pwd (or pwd itself)
+
+# TODO: a lot of cleanup
+#       a lot of refactoring
+#       currently only shows changes without performing them
 #
 import sys, os, re
 
