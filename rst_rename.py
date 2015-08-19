@@ -6,6 +6,7 @@
 # The file to be replaced and the .rst files should be in a subfolder of pwd (or pwd itself)
 
 # TODO: some cleanup
+#       add for literalincludes: references after ::
 #
 import sys, os, re
 
