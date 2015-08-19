@@ -3,9 +3,9 @@
 # This script renames rst files in args while replacing references
 # in any file placed in any folder from pwd
 
-# TODO: it should be improved the selection of the common folder.
-# Currently it allows running it over a file that is not in the path
-# of the possible referencers
+# This script has been replaced by rst_rename.py and is saved just for reference.
+# It was working perfectly for pelican based rst files. Now on Sphinx there are further needs that
+# are covered by the new version.
 
 # check if there're the two required args
 if [ "$#" -ne 2 ];
