@@ -28,18 +28,30 @@ class Renamer:
         self.rstfiles = self._get_rst_files()
 
     def print_changes(self):
-        """ It prints changes to be performed to stdout. It does not change any file contents. """
-        self._rename_references(testonly=True)
+        """ It prints changes to be performed to stdout. It does not change any file contents.
+            It returns whether there are files with changes.
+        """
+        return self._rename_references(testonly=True)
+
+    def perform_changes(self):
+        """ As print_changes() but performing the changes """
+        return self._rename_references(testonly=False)
 
     def _rename_references(self, testonly=True):
         """ for each file in self.rstfiles it shows the changes to be performed and, if not
-        testonly, it performs them on the files. """
+        testonly, it performs them on the files.
+        It returns True if there are files to change.
+        """
+        fileswithchanges = False
         for rst in self.rstfiles:
-            self._rename_references_in_file(rst, testonly)
+            fileswithchanges = self._rename_references_in_file(rst, testonly) or fileswithchanges
+        return fileswithchanges
 
     def _rename_references_in_file(self, rstfile, testonly):
         """ It shows the changes to be performed on file rst and, if not testonly, it performs
-        them on the file. """
+        them on the file. 
+        It returns True if there are changes in this file.
+        """
         #print ("XXX _rename_references_in_file(%s)"%rstfile)
         dstlink = self._get_link_of_renamed_file_for_rst(rstfile)
         lines = get_lines_in_file(rstfile)
@@ -59,6 +71,8 @@ class Renamer:
 
         if filechanged and not testonly:
            save_lines_in_file(rstfile, lines)
+
+        return filechanged
 
     def _print_change(self, rstfile, oldline, newline):
         """ Prints the change to the standard output """
@@ -454,7 +468,12 @@ def main():
 #     #print("XXX not done: check dstfilename doesn't exist")
 
     renamer = Renamer(srcfilename, dstfilename)
-    renamer.print_changes()
+    changes = renamer.print_changes()
+    if changes:
+        renamer.perform_changes()
+    else:
+        print ("No changes required")
+
     #  # all rst files in the path
     #  rstfiles = []
     #  for root, subfolders, files in os.walk(os.getcwd()):
