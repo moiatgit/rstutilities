@@ -5,17 +5,17 @@
 # in any .rst file.
 # The file to be replaced and the .rst files should be in a subfolder of pwd (or pwd itself)
 
-# TODO: some cleanup
-#       add for literalincludes: references after ::
+# TODO: some cleanup and more robustness
 #
 import sys, os, re
 
 class Renamer:
 
     # Regular expressions
-    _regexp_toc    = re.compile("^\s+(.+)\s*$")
-    _regexp_quoted = re.compile("`(.*?)`")
-    _regexp_tagged = re.compile("<(.*?)>")
+    _regexp_list = [re.compile("^\s+(.+)\s*$"),
+                    re.compile("`(.*?)`"),
+                    re.compile("<(.*?)>"),
+                    re.compile("^\s*\.\. literalinclude:: (.*)$") ]
 
     def __init__(self, srcpath, dstpath):
         """ srcpath does exists, dstpath doesn't """
@@ -60,17 +60,13 @@ class Renamer:
         rstpath = os.path.dirname(rstfile)
         filechanged = False
         for i, line in enumerate(lines):
-            line, quochanged = self._rename_references_in_line(line, Renamer._regexp_quoted,
-                                                               rstpath, dstlink)
-            line, tagchanged = self._rename_references_in_line(line, Renamer._regexp_tagged,
-                                                               rstpath, dstlink)
-            line, tocchanged = self._rename_references_in_line(line, Renamer._regexp_toc,
-                                                               rstpath, dstlink)
-            if (quochanged or tagchanged or tocchanged):
-                if testonly:
-                    self._print_change(rstfile, lines[i], line)
-                lines[i] = line
-                filechanged = True
+            for regexp in Renamer._regexp_list:
+                line, changed = self._rename_references_in_line(line, regexp, rstpath, dstlink)
+                if changed:
+                    if testonly:
+                        self._print_change(rstfile, lines[i], line)
+                    lines[i] = line
+                    filechanged = True
 
         if filechanged and not testonly:
            save_lines_in_file(rstfile, lines)
@@ -91,14 +87,14 @@ class Renamer:
         changed = False
         for srcref in refs:
             src = srcref.rstrip(os.linesep)  # remove newline
-            src = add_extension_if_missing(src)
             src = normalizebasepath(self.basepath, rstpath, src)
             if not os.path.isfile(src):
-                continue
+                src = add_extension_if_missing(src)
+                if not os.path.isfile(src):
+                    continue
             if not os.path.samefile(src, self.srcpath):
                 continue
-            newline = re.sub(srcref, dstlink, line)
-            line = newline
+            line = re.sub(srcref, dstlink, line)
             changed = True
         return line, changed
 
