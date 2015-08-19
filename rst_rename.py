@@ -6,7 +6,6 @@
 # The file to be replaced and the .rst files should be in a subfolder of pwd (or pwd itself)
 
 # TODO: a lot of cleanup
-#       a lot of refactoring
 #       currently only shows changes without performing them
 #
 import sys, os, re
@@ -35,7 +34,9 @@ class Renamer:
 
     def perform_changes(self):
         """ As print_changes() but performing the changes """
-        return self._rename_references(testonly=False)
+        changes = self._rename_references(testonly=False)
+        os.rename(self.srcpath, self.dstpath)
+        return changes
 
     def _rename_references(self, testonly=True):
         """ for each file in self.rstfiles it shows the changes to be performed and, if not
