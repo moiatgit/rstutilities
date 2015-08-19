@@ -11,6 +11,64 @@
 #
 import sys, os, re
 
+class Renamer:
+
+    def __init__(self, srcpath, dstpath):
+        """ srcpath does exists, dstpath doesn't """
+        assert os.path.isfile(srcpath)
+        assert nor os.path.isfile(dstpath)
+        self.basepath = os.getcwd()
+1        self.srcpath = srcpath
+        self.dstpath = dstpath
+        self.rstfiles = self._get_rst_files()
+
+    def print_changes():
+        """ It prints changes to be performed to stdout. It does not change any file contents. """
+        self._rename_references(testonly=True)
+
+    def _rename_references(testonly):
+        """ for each file in self.rstfiles it shows the changes to be performed and, if not
+        testonly, it performs them on the files. """
+        for rst in rstfiles:
+            self._rename_references_in_file(rst, testonly)
+
+    def _rename_references_in_file(rstfile, testonly):
+        """ It shows the changes to be performed on file rst and, if not testonly, it performs
+        them on the file. """
+        dstlink = self._get_link_for_renamed_file_from_rst(rstfile)
+
+    def _get_link_for_renamed_file_from_rst(self, rst):
+        """ Given an rstfile, it returns the link that would reference the dstfile """
+        if same_path(rst, self.dstpath):
+            link = os.path.basename(self.dstpath)
+        else:
+            link = _get_relative_path(self.destpath)
+        return remove_rst_extension_if_present(link)
+
+    def _get_relative_path(self, path):
+        """ returns the path without the basepath when it starts with it.
+            E.g. basepath="/one/two" and path="/one/two/tree/four.rst" ==> "/tree/four.rst"
+            E.g. basepath="/one/two" and path="/one/two/four.rst" ==> "/four.rst"
+        """
+        if path.startswith(self.basepath):
+            return path[len(self.basepath):]
+        else:
+            return path
+
+    def _get_rst_files(self):
+        """ returns the list of rst files contained in cwd """
+        rstfiles = []
+        for root, _, files in os.walk(self.basepath):
+            rstfiles+=[ os.path.join(root, f) for f in files if is_rst_file(f) ]
+
+def is_rst_file(path):
+    """ True if path is an .rst file """
+    return path[-4:] == ".rst"
+
+def same_path(f1, f2):
+    """ True if both files have the same path """
+    return os.path.basedir(f1) == os.path.basedir(f2)
+
 def relativepath(basepath, path):
     """ returns the path without the basepath when it starts with it.
         E.g. basepath="/one/two" and path="/one/two/tree/four.rst" ==> "/tree/four.rst"
@@ -358,6 +416,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
 # 
 # # check if there're the two required args
 # if [ "$#" -ne 2 ];
