@@ -15,7 +15,8 @@ class Renamer:
     _regexp_list = [re.compile("^\s+(.+)\s*$"),
                     re.compile("`(.*?)`"),
                     re.compile("<(.*?)>"),
-                    re.compile("^\s*\.\. literalinclude:: (.*)$") ]
+                    re.compile("^\s*\.\. literalinclude:: (.*)$"),
+                    re.compile("^\s*\.\. figure:: (.*)$") ]
 
     def __init__(self, srcpath, dstpath):
         """ srcpath does exists, dstpath doesn't """
