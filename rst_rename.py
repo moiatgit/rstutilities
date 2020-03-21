@@ -7,6 +7,7 @@
     it is renamed using git to ease control identification.
 """
 
+# XXX TODO: absolute references (/) are relative to the source directory. Relative references are relative to the rst file
 # XXX TODO: allow specifying a recursive option to check within the subfolders of src
 # XXX TODO: add a non-git option to allow avoiding to be git aware
 
@@ -255,40 +256,75 @@ def check_rst_references(rstcontents, src, dst):
                      dst: the proposed change of the line
 
         A reference to rst can appear in the following ways:
-        - if src is a .rst itself, the reference could appear with and without the .rst extension
         - the reference path are always relative to the rst. 
           - when the reference starts with /, it means from the parent of the rst
           - otherwise it also means the same, so / at the beginning is superfluous
         - references can be:
+          - after a figure::
+          - after a image::
           - on a toctree (with or without .rst extension)
           - after a :ref: (including the <> variant) (without .rst extension)
           - after a :doc: (including the <> variant) (without .rst extension)
           - after a literalinclude::
-          - after a figure::
-          - after a image::
           - after a :download: (including the <> variant)
     """
 
     def look_for_images(rstcontents, src, dst):
         """ this method is specialized in references to images/figures
         """
-        _regex_image = r"^(\s*\.\. (image|figure)::\ */?)(%s)$" % src
+        regex_image = r"^(\s*\.\. (image|figure)::\ */?)(%s)$" % src
         changes = list()
         for nr, line in enumerate(rstcontents):
-            m = re.match(_regex_image, line)
+            m = re.match(regex_image, line)
             if not m:
                 continue
             change = dict()
             change['line'] = nr
             change['src'] = line
-            change['dst'] = re.sub(_regex_image, r'\1%s' % dst, line)
+            change['dst'] = re.sub(regex_image, r'\1%s' % dst, line)
+            changes.append(change)
+        return changes
+
+    def look_for_toctrees(rstcontents, src, dst):
+        """ This method is specialized in references on toctrees """
+        regex_toctree = r"^(\s*)\.\. toctree::\s*$"
+        regex_toctree_entry = r"^(\s*)([^\s].*)?$"
+        if src.suffix != '.rst' or dst.suffix != '.rst':
+            return list()       # non rst can't be in a toctree
+        changes = list()
+        in_toctree = False
+        min_indentation = 0     # minimum indentation for items in toctree
+        for nr, line in enumerate(rstcontents):
+            if not in_toctree:
+                m = re.match(regex_toctree, line)
+                if m:
+                    in_toctree = True
+                    min_indentation = len(m.group(1)) + 1
+                continue
+            if not line.strip():    # ignore empty lines
+                continue
+            m = re.match(regex_toctree_entry, line)
+            if not m or len(m.group(1)) < min_indentation:  # end of toctree
+                in_toctree = False
+                continue
+            if not m.group(2).strip() in (str(src), str(src)[:-4]):  # not our src
+                continue
+            change = dict()
+            change['line'] = nr
+            change['src'] = line
+            if m.group(2).strip() == str(src):
+                change['dst'] = m.group(1) + str(dst)
+            else:
+                change['dst'] = m.group(1) + str(dst)[:-4]
             changes.append(change)
 
+        print("XXX changes", changes)
         return changes
 
     result = dict()
     changes = list()    # list of changes
     changes += look_for_images(rstcontents, src, dst)
+    changes += look_for_toctrees(rstcontents, src, dst)
     result['result'] = len(changes) > 0
     result['changes'] = changes
     return result
