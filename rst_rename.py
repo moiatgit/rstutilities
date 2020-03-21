@@ -15,7 +15,6 @@ import argparse
 import pathlib
 
 
-_pattern_image = re.compile(r"^((\s*\.\. )(image|figure)(::\ *))(.*)$")
 
 ##class Renamer:
 ##
@@ -269,18 +268,20 @@ def check_rst_references(rstcontents, src, dst):
           - after a image::
           - after a :download: (including the <> variant)
     """
+
     def look_for_images(rstcontents, src, dst):
         """ this method is specialized in references to images/figures
         """
+        _regex_image = r"^(\s*\.\. (image|figure)::\ */?)(%s)$" % src
         changes = list()
         for nr, line in enumerate(rstcontents):
-            m = _pattern_image.match(line)
+            m = re.match(_regex_image, line)
             if not m:
                 continue
             change = dict()
             change['line'] = nr
             change['src'] = line
-            change['dst'] = _pattern_image.sub(r'\1%s' % dst, line)
+            change['dst'] = re.sub(_regex_image, r'\1%s' % dst, line)
             changes.append(change)
 
         return changes
