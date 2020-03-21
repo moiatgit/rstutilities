@@ -323,8 +323,8 @@ def check_rst_references(rstcontents, src, dst):
 
     result = dict()
     changes = list()    # list of changes
-    changes += look_for_images(rstcontents, src, dst)
-    changes += look_for_toctrees(rstcontents, src, dst)
+    for function in (look_for_images, look_for_toctrees):
+        changes += function(rstcontents, src, dst)
     result['result'] = len(changes) > 0
     result['changes'] = changes
     return result
