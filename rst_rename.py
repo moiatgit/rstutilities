@@ -48,7 +48,6 @@ def perform_renaming(src, dst, folders, force):
         checking_result = check_rst_references(lines, 
                                                src.relative_to(rst.parent),
                                                dst.relative_to(rst.parent))
-        print("XXX checking_result", checking_result)
 
 
 ####################################################################################################
@@ -114,29 +113,6 @@ def check_options(options):
 ####################################################################################################
 
 
-def check_line_for_tag(tag, line, src, dst):
-    """ checks the tag in the line
-        it returns:
-        - state: the new state from this check
-                 - 'new tag' when the line is finished
-                 - 'caption only' when the last tag is splitted and targe has to be found in a next line
-        - has_changed: True if line has a change
-        - new_line: contents of the line after change
-    """
-    new_state = 'new tag'
-    print(f"XXX\t\t check_line_for_tag({line}) enters")
-    has_changed = False
-    pos = 0
-    while True:
-        print(f"XXX\t\t\t in the loop state {new_state} has_changed {has_changed} pos {pos} line |{line}|")
-        new_state, has_change_partial, line, pos = check_partial_line_for_tag(tag, line, pos, src, dst)
-        has_changed = has_changed or has_change_partial
-        if new_state == 'caption only':
-            break
-        if pos < 1 or pos >= len(line):
-            break
-    return new_state, has_changed, line
-
 def check_line_for_caption(line, src, dst):
     """ checks for <src> in line
 
@@ -163,7 +139,8 @@ def check_line_for_caption(line, src, dst):
         if reference_contents == src:
             new_line = line[:pos_init_caption + 1] + dst + line[pos_end_caption:]
             has_changed = True
-    print(f"XXX\t\t returning from caption only new_state {new_state} has_changed {has_changed} line |{new_line}|")
+
+    print(f"XXX\t check_line_for_captionº() returns {new_state}, {has_changed}, |{new_line}|, {pos_end_caption +1}")
     return new_state, has_changed, new_line, pos_end_caption + 1
 
 def check_partial_line_for_tag(tag, line, pos, src, dst):
@@ -174,39 +151,34 @@ def check_partial_line_for_tag(tag, line, pos, src, dst):
         - new_line: contents of the line after change
         - new_pos: pos in the line after checking last tag
     """
-    print(f"XXX\t\t\t check_partial_line_for_tag(line |{line}| pos {pos}")
     has_changed = False
     new_line = line
     new_state = 'new tag'
     pos_tag = line.find(tag, pos)
     if pos_tag >= pos:
-        print(f"XXX\t\t\t tag found at pos {pos_tag}")
         pos_open_tag = line.find('`', pos_tag)
         pos_close_tag = line.find('`', pos_open_tag + 1)
         if pos_close_tag < 0:   # splitted tag
-            print(f"XXX\t\t\t close tag not found ")
             new_state = 'caption only'
             new_pos = len(line)
         else:
             new_pos = pos_close_tag + 1
             tag_content = line[pos_open_tag+1: pos_close_tag]
-            print(f"XXX\t\t\t close tag found at {pos_close_tag} with contents |{tag_content}|")
             if tag_content == src:  # tag`target`
                 new_line = line[:pos_open_tag+1] + dst + line[pos_close_tag:]
-                print(f"XXX\t\t\t new_line |{new_line}|")
                 has_changed = True
             elif '<' in tag_content:    # ref with caption
                 pos_init_caption = line.find('<', pos_tag + 1)
                 pos_end_caption = line.find('>', pos_init_caption + 1)
                 assert pos_init_caption < pos_end_caption, "malformed rst on line %s" % line
                 caption_content = line[pos_init_caption + 1:pos_end_caption]
-                print(f"XXX\t\t\t it is a caption reference |{caption_content}|")
                 if caption_content == src:
                     has_changed = True
                     new_line = line[:pos_init_caption + 1] + dst + line[pos_end_caption:]
     else:
         new_pos = len(line)         # no more tags here
 
+    print(f"XXX\t check_partial_line_for_tag() returns {new_state}, {has_changed}, |{new_line}|, {new_pos}")
     return new_state, has_changed, new_line, new_pos
 
 def check_line_for_tag(tag, line, src, dst):
@@ -221,9 +193,11 @@ def check_line_for_tag(tag, line, src, dst):
     pos = 0
     state = 'new tag'
     while 0 <= pos < len(line):
+        print(f"XXX check_line_for_tag with status {state} on pos {pos} for line |{line}|")
         if state == 'new tag':
             state, has_change_partial, new_line, pos = check_partial_line_for_tag(tag, new_line, pos, src, dst)
         else: # state == 'caption only'
+            print("XXX\t we are on caption only")
             state, has_changed_partial, new_line, pos = check_line_for_caption(new_line, src, dst)
         has_changed = has_changed or has_change_partial
     return has_changed, new_line
@@ -237,7 +211,6 @@ def look_for_tag(tag, rstcontents, src, dst):
         - :ref:`text for caption <objectwithoutextension>`
         When object appears within <>, it can go in the next line
     """
-    print(f"XXX look_for_ref(src {src} dst {dst})")
     if src.suffix != '.rst' or dst.suffix != '.rst':
         return list()       # non rst can't be in a toctree
     src = str(src)[:-4] # remove extension since references go without
@@ -245,14 +218,15 @@ def look_for_tag(tag, rstcontents, src, dst):
     changes = list()
     state = 'new tag'
     for nr, line in enumerate(rstcontents):
+        print(f"XXX look_for_tag() checking line {nr}")
         has_changed, new_line = check_line_for_tag(tag, line, src, dst)
         if has_changed:
             change = {
                 'line': nr, 
                 'src': line,
-                'dst': new_line.
+                'dst': new_line,
             }
-           changes.append(change)
+            changes.append(change)
     return changes
 
 def check_rst_references(rstcontents, src, dst):
