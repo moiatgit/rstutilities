@@ -46,9 +46,14 @@ def perform_renaming(src, dst, folders, force):
             continue
         with open(rst) as f:
             lines = f.readlines()
-        checking_result = check_rst_references(lines, 
+        changes = check_rst_references(lines, 
                                                src.relative_to(rst.parent),
                                                dst.relative_to(rst.parent))
+    #XXX HERE!:
+    #    - consider removing the posibility to define more than one folder but for base path
+    #    - consider XXX for recursive option
+    #    - then prepare a function to show the changes if interactive (not forced)
+    #    - then perform the changes including renaming src file
 
 
 ####################################################################################################
@@ -113,8 +118,8 @@ def check_options(options):
 # renaming suport
 ####################################################################################################
 
-def check_line_for_caption(line, src):
-    """ checks for <src> in line
+def check_line_for_caption(line, target):
+    """ checks for <target> in line
 
         IMPORTANT: '<' cannot appear within the caption text
 
@@ -133,7 +138,7 @@ def check_line_for_caption(line, src):
         pos_end_caption = line.find('>')
         assert pos_init_caption < pos_end_caption, "malformed rst on line %s" % line
         reference = line[pos_init_caption + 1: pos_end_caption]
-        if reference == src:
+        if reference == target:
             target_pos = pos_init_caption + 1
         else:
             target_pos = -1
@@ -141,7 +146,7 @@ def check_line_for_caption(line, src):
     return reference_splitted, target_pos, next_pos
 
 
-def check_partial_line_for_tag(tag, line, pos, src):
+def check_partial_line_for_tag(tag, line, pos, target):
     """ given a line and a pos to start checking, it looks for tag from pos in the line.
         It returns:
         - if the reference is splitted. i.e. there's a caption and <> part will appear in another line
@@ -159,7 +164,7 @@ def check_partial_line_for_tag(tag, line, pos, src):
 
     next_pos = pos_close_tag + 1
     tag_content = line[pos_open_tag+1: pos_close_tag]
-    if tag_content == src:  # tag`target`
+    if tag_content == target:  # tag`target`
         return False, pos_open_tag + 1, next_pos
 
     if '<' not in tag_content:    # references to another target
@@ -169,13 +174,13 @@ def check_partial_line_for_tag(tag, line, pos, src):
     pos_end_caption = line.find('>', pos_init_caption + 1)
     assert pos_init_caption < pos_end_caption, "malformed rst on line %s" % line
     caption_content = line[pos_init_caption + 1:pos_end_caption]
-    if caption_content == src:
+    if caption_content == target:
         return False, pos_init_caption + 1, next_pos
 
     return False, -1, next_pos
 
 
-def check_line_for_tag(tag, reference_splitted, line, src):
+def check_line_for_tag(tag, reference_splitted, line, target):
     """ checks for tag in the line
         It works in two different ways depending on the value of reference_splitted:
         - False: it expects to find the tag
@@ -189,9 +194,9 @@ def check_line_for_tag(tag, reference_splitted, line, src):
     next_pos = 0
     while 0 <= next_pos < len(line):
         if reference_splitted:
-            reference_splitted, reference_pos, next_pos = check_line_for_caption(line, src)
+            reference_splitted, reference_pos, next_pos = check_line_for_caption(line, target)
         else:
-            reference_splitted, reference_pos, next_pos = check_partial_line_for_tag(tag, line, next_pos, src)
+            reference_splitted, reference_pos, next_pos = check_partial_line_for_tag(tag, line, next_pos, target)
         if reference_pos >= 0:
             positions.append(reference_pos)
     return reference_splitted, positions
@@ -210,14 +215,12 @@ def look_for_tag(tag, rstcontents, src):
     """
     if src.suffix != '.rst':
         return list()       # non rst can't be in a toctree
-    src = str(src)[:-4] # remove extension since references go without
+    target = str(src)[:-4] # remove extension since references go without
     changes = list()
     reference_splitted = False   # initially, the tag is expected
     for nr, line in enumerate(rstcontents):
-        print(f"XXX on line {nr} |{line}|")
-        reference_splitted, positions = check_line_for_tag(tag, reference_splitted, line, src)
+        reference_splitted, positions = check_line_for_tag(tag, reference_splitted, line, target)
         changes.extend([(nr, pos) for pos in positions])
-    print(f"XXX look_for_tag() return {changes}")
     return changes
 
 def check_rst_references(rstcontents, src):
@@ -288,7 +291,6 @@ def check_for_image_tag(tag, rstcontents, src, accept_absolute = True):
         if line[pos_target+len(target):].strip():
             continue    # there's something more after the tag
         changes.append((nr, pos_target))
-    print("XXX returning changes", changes)
     return changes
 
 ####################################################################################################
