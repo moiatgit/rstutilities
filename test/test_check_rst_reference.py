@@ -279,7 +279,7 @@ def test_ref_when_the_target_src():
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
     expected = { 'result': True, 'changes': [
-        { 'line': 2, 'src': 'and a :ref:`object` that', 'dst': 'and a :ref:`renamed` that' },
+        { 'line': 1, 'src': 'and a :ref:`object` that', 'dst': 'and a :ref:`renamed` that' },
     ]}
     obtained = check_rst_references(contents, src, dst)
     assert expected['result'] == obtained['result']

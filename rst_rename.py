@@ -276,34 +276,122 @@ def check_rst_references(rstcontents, src, dst):
             - :ref:`text for caption <objectwithoutextension>`
             When object appears within <>, it can go in the next line
         """
+        def check_line_for_tag(line, src, dst):
+            """ checks the tag in the line
+                it returns:
+                - state: the new state from this check
+                         - 'new tag' when the line is finished
+                         - 'caption only' when the last tag is splitted and targe has to be found in a next line
+                - has_changed: True if line has a change
+                - new_line: contents of the line after change
+            """
+            def check_partial_line_for_tag(line, pos, src, dst):
+                """ given a line and a pos to start checking, it looks for tag from pos in the line.
+                    It returns:
+                    - state: the new state from this check
+                    - has_changed: True if line has a change
+                    - new_line: contents of the line after change
+                    - new_pos: pos in the line after checking last tag
+                """
+                print(f"XXX\t\t\t check_partial_line_for_tag(line |{line}| pos {pos}")
+                has_changed = False
+                new_line = line
+                new_state = 'new tag'
+                pos_tag = line.find(tag, pos)
+                if pos_tag >= pos:
+                    print(f"XXX\t\t\t tag found at pos {pos_tag}")
+                    pos_open_tag = line.find('`', pos_tag)
+                    pos_close_tag = line.find('`', pos_open_tag + 1)
+                    if pos_close_tag < 0:   # splitted tag
+                        print(f"XXX\t\t\t close tag not found ")
+                        new_state = 'caption only'
+                        new_pos = len(line)
+                    else:
+                        new_pos = pos_close_tag + 1
+                        tag_content = line[pos_open_tag+1: pos_close_tag]
+                        print(f"XXX\t\t\t close tag found at pos {pos_close_tag} with contents |{tag_content}|")
+                        if tag_content == src:  # tag`target`
+                            new_line = line[:pos_open_tag+1] + dst + line[pos_close_tag:]
+                            print(f"XXX\t\t\t new_line |{new_line}|")
+                            has_changed = True
+                        elif '<' in tag_content:    # ref with caption
+                            pos_init_caption = line.find('<', pos_tag + 1)
+                            pos_end_caption = line.find('>', pos_init_caption + 1)
+                            assert pos_init_caption < pos_end_caption, "malformed rst on line %s" % line
+                            caption_content = line[pos_init_caption:pos_end_caption]
+                            if caption_content == src:
+                                has_changed = True
+                                new_line = line[:pos_init_caption] + dst + line[pos_end_caption:]
+                else:
+                    new_pos = len(line)         # no more tags here
+
+                return new_state, has_changed, new_line, new_pos
+
+            new_state = 'new tag'
+            print(f"XXX\t\t check_line_for_tag({line}) enters")
+            has_changed = False
+            pos = 0
+            while True:
+                print(f"XXX\t\t\t in the loop state {new_state} has_changed {has_changed} pos {pos} line |{line}|")
+                new_state, has_change_partial, line, pos = check_partial_line_for_tag(line, pos, src, dst)
+                has_changed = has_changed or has_change_partial
+                if state == 'caption only':
+                    break
+                if pos < 1 or pos >= len(line):
+                    break
+            return new_state, has_changed, line
+
+        def check_line_for_caption(line, src, dst):
+            """ checks for <src> in line
+
+                IMPORTANT: '<' cannot appear within the caption text
+
+                It returns:
+                - state: the new state: 'caption only' if no reference found or 'new tag' if refernce has been found
+                - has_changed: True if the reference has been found
+                - new_line: the contents of the line after the change
+            """
+            new_line = line
+            has_changed = False
+            new_state = 'caption only'
+            pos_init_caption = line.find('<') 
+            if pos_init_caption >= 0:
+                new_state = 'new tag'
+                pos_end_caption = line.find('>', pos_init_caption)
+                assert pos_init_caption < pos_end_caption, "malformed rst on line %s" % line
+                reference_contents = line[pos_init_caption: pos_end_caption]
+                if reference_contents == src:
+                    new_line = line[:pos_init_caption] + dst + line[pos_end_caption:]
+                    has_changed = True
+            return new_state, has_changed, new_line
+
+        print(f"XXX look_for_ref(src {src} dst {dst})")
         tag = ':ref:`'
         if src.suffix != '.rst' or dst.suffix != '.rst':
             return list()       # non rst can't be in a toctree
+        src = str(src)[:-4] # remove extension since references go without
+        dst = str(dst)[:-4]
         changes = list()
-        splitted_line = False
+        state = 'new tag'
         for nr, line in enumerate(rstcontents):
-            if tag not in line:
-                continue
-            last_pos = 0
-            pos = 0
-            trobat = False
-            while True:
-                pos = line.find(tag, last_pos)
-                if pos < last_pos:
-                    break
-                final_tag_pos = line.find('`', pos+len(tag))
-                if final_tag_pos < pos: # it must be with caption and with line splitted
-                    splitted_line = True
-
-
-
-            m = re.match(regex_ref_basic, line)
-            if m:
-                change = dict()
-                change['line'] = nr
-                change['src'] = line
-                change['dst'] = re.sub(regex_ref_basic, r'\1%s' % dst, line)
+            print(f"XXX\tchecking line {nr} |{line}|")
+            print(f"XXX\tstate {state}")
+            has_changed = False
+            if state == 'new tag':
+                if tag in line:
+                    print(f"XXX\ttag {tag} found in line")
+                    state, has_changed, new_line = check_line_for_tag(line, src, dst)
+                    print(f"XXX\tcheck line for tag returns {state}, {has_changed}, {new_line}")
+            else: # state == 'caption only'
+                state, has_changed, new_line = check_line_for_caption(line, src, dst)
+            if has_changed:
+                change = {
+                    'line': nr,
+                    'src': line,
+                    'dst': new_line,
+                }
                 changes.append(change)
+        print("XXX look_for_ref() returns", changes)
         return changes
 
 
