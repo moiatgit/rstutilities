@@ -8,6 +8,7 @@
 """
 
 # XXX TODO: absolute references (/) are relative to the source directory. Relative references are relative to the rst file
+#           There's a first attempt to deal with it. Check function check_for_image_tag()
 # XXX TODO: allow specifying a recursive option to check within the subfolders of src
 # XXX TODO: add a non-git option to allow avoiding to be git aware
 
@@ -112,137 +113,123 @@ def check_options(options):
 # renaming suport
 ####################################################################################################
 
-### XXX OK: the problem is:
-#when there's more than one differnt change in the same line, it will dup the change
-#What should be done is to keep the list of lines with changes and then replace properly.
-#To do so, it would be necessari, not only to indicate the nr. of the affected line, but the starting pos of the
-#item to be replaced!
-#Therefore, the rest of the modules DO NOT HAVE to know about the dst
-
-def check_line_for_caption(line, src, dst):
+def check_line_for_caption(line, src):
     """ checks for <src> in line
 
         IMPORTANT: '<' cannot appear within the caption text
 
         It returns:
-        - state: the new state: 'caption only' if no reference found or 'new tag' if refernce has been found
-        - has_changed: True if the reference has been found
-        - new_line: the contents of the line after the change
-        - pos in line after processing the reference
+        - if the reference is still splitted (no reference found)
+        - the position where the target has been found (-1 if not found)
+        - the position where to keep looking for further references
     """
-    print(f"\tXXX checking for caption only |{line}|")
-    new_line = line
-    has_changed = False
-    new_state = 'caption only'
-    pos_end_caption = len(line)     # in case it is not found
     pos_init_caption = line.find('<') 
-    if pos_init_caption >= 0:
-        new_state = 'new tag'
-        pos_end_caption = line.find('>', pos_init_caption + 1)
+    if pos_init_caption < 0:
+        reference_splitted = True
+        target_pos = -1
+        next_pos = len(line)
+    else:
+        reference_splitted = False
+        pos_end_caption = line.find('>')
         assert pos_init_caption < pos_end_caption, "malformed rst on line %s" % line
-        reference_contents = line[pos_init_caption +1:pos_end_caption]
-        print(f"\t\tline has a potential reference between {pos_init_caption} and {pos_end_caption}: |{reference_contents}|")
-        if reference_contents == src:
-            new_line = line[:pos_init_caption + 1] + dst + line[pos_end_caption:]
-            has_changed = True
+        reference = line[pos_init_caption + 1: pos_end_caption]
+        if reference == src:
+            target_pos = pos_init_caption + 1
+        else:
+            target_pos = -1
+        next_pos = pos_end_caption + 2 # counting '>`'
+    return reference_splitted, target_pos, next_pos
 
-    return new_state, has_changed, new_line, pos_end_caption + 1
 
-def check_partial_line_for_tag(tag, line, pos, src, dst):
+def check_partial_line_for_tag(tag, line, pos, src):
     """ given a line and a pos to start checking, it looks for tag from pos in the line.
         It returns:
-        - state: the new state from this check
-        - has_changed: True if line has a change
-        - new_line: contents of the line after change
-        - new_pos: pos in the line after checking last tag
+        - if the reference is splitted. i.e. there's a caption and <> part will appear in another line
+        - the position where the target has been found (-1 if not found)
+        - the position where to keep looking for further references
     """
-    has_changed = False
-    new_line = line
-    new_state = 'new tag'
     pos_tag = line.find(tag, pos)
-    if pos_tag >= pos:
-        pos_open_tag = line.find('`', pos_tag)
-        pos_close_tag = line.find('`', pos_open_tag + 1)
-        if pos_close_tag < 0:   # splitted tag
-            new_state = 'caption only'
-            new_pos = len(line)
-        else:
-            new_pos = pos_close_tag + 1
-            tag_content = line[pos_open_tag+1: pos_close_tag]
-            if tag_content == src:  # tag`target`
-                new_line = line[:pos_open_tag+1] + dst + line[pos_close_tag:]
-                has_changed = True
-            elif '<' in tag_content:    # ref with caption
-                pos_init_caption = line.find('<', pos_tag + 1)
-                pos_end_caption = line.find('>', pos_init_caption + 1)
-                assert pos_init_caption < pos_end_caption, "malformed rst on line %s" % line
-                caption_content = line[pos_init_caption + 1:pos_end_caption]
-                if caption_content == src:
-                    has_changed = True
-                    new_line = line[:pos_init_caption + 1] + dst + line[pos_end_caption:]
-    else:
-        new_pos = len(line)         # no more tags here
+    if pos_tag < 0:
+        return False, -1, len(line)
 
-    return new_state, has_changed, new_line, new_pos
+    pos_open_tag = line.find('`', pos_tag)
+    pos_close_tag = line.find('`', pos_open_tag + 1)
+    if pos_close_tag < 0:   # splitted tag
+        return True, -1, len(line)
 
-def check_line_for_tag(tag, state, line, src, dst):
+    next_pos = pos_close_tag + 1
+    tag_content = line[pos_open_tag+1: pos_close_tag]
+    if tag_content == src:  # tag`target`
+        return False, pos_open_tag + 1, next_pos
+
+    if '<' not in tag_content:    # references to another target
+        return False, -1, next_pos
+
+    pos_init_caption = line.find('<', pos_tag + 1)
+    pos_end_caption = line.find('>', pos_init_caption + 1)
+    assert pos_init_caption < pos_end_caption, "malformed rst on line %s" % line
+    caption_content = line[pos_init_caption + 1:pos_end_caption]
+    if caption_content == src:
+        return False, pos_init_caption + 1, next_pos
+
+    return False, -1, next_pos
+
+
+def check_line_for_tag(tag, reference_splitted, line, src):
     """ checks for tag in the line
-        It will consume the whole line
+        It works in two different ways depending on the value of reference_splitted:
+        - False: it expects to find the tag
+        - True: the tag was found in a previous line, so it looks just for the target
+        It will consume the whole line when return
         It returns:
-        - has_changed: True if there's a change
-        - new_line: contents of the line once replaced
+        - if the reference is still splitted
+        - a list of positions in the line where src has been found
     """
-    has_changed = False
-    new_line = line
-    pos = 0
-    while 0 <= pos < len(line):
-        if state == 'new tag':
-            state, has_changed_partial, new_line, pos = check_partial_line_for_tag(tag, new_line, pos, src, dst)
-        else: # state == 'caption only'
-            state, has_changed_partial, new_line, pos = check_line_for_caption(new_line, src, dst)
-        has_changed = has_changed or has_changed_partial
-    print(f"XXX CHECK_LINE_FOR_TAG() is returning {has_changed}, |{new_line}|, {state}")
-    return has_changed, new_line, state
+    positions = []
+    next_pos = 0
+    while 0 <= next_pos < len(line):
+        if reference_splitted:
+            reference_splitted, reference_pos, next_pos = check_line_for_caption(line, src)
+        else:
+            reference_splitted, reference_pos, next_pos = check_partial_line_for_tag(tag, line, next_pos, src)
+        if reference_pos >= 0:
+            positions.append(reference_pos)
+    return reference_splitted, positions
 
 
-def look_for_tag(tag, rstcontents, src, dst):
+def look_for_tag(tag, rstcontents, src):
     """ This method is specialized in references with directives like :ref: and :doc:
         It expects tag to contain ':ref:' or ':doc:'
         These directives allow the following variants:
         - :ref:`objectwithoutextension`
         - :ref:`text for caption <objectwithoutextension>`
-        When object appears within <>, it can go in the next line
+        When object appears within <>, it can appear splitted from the tag line. e.g.
+            :ref:`a ref
+            with
+            a caption <target>`
     """
-    if src.suffix != '.rst' or dst.suffix != '.rst':
+    if src.suffix != '.rst':
         return list()       # non rst can't be in a toctree
     src = str(src)[:-4] # remove extension since references go without
-    dst = str(dst)[:-4]
     changes = list()
-    state = 'new tag'
+    reference_splitted = False   # initially, the tag is expected
     for nr, line in enumerate(rstcontents):
         print(f"XXX on line {nr} |{line}|")
-        has_changed, new_line, state = check_line_for_tag(tag, state, line, src, dst)
-        if has_changed:
-            change = {
-                'line': nr, 
-                'src': line,
-                'dst': new_line,
-            }
-            changes.append(change)
+        reference_splitted, positions = check_line_for_tag(tag, reference_splitted, line, src)
+        changes.extend([(nr, pos) for pos in positions])
     print(f"XXX look_for_tag() return {changes}")
     return changes
 
-def check_rst_references(rstcontents, src, dst):
+def check_rst_references(rstcontents, src):
     """ Given:
             rstcontents: str with the contents of a rst file
             src: a pathlib relative to the rst file with the old name
-            dst: a pathlib relative to the rst file with the new name
-        it returns a dict with the following keys
-            result: a boolean indicating if there are changes (True) or not. This key will always be present.
-            changes: a list of dict describing the changes in the file
-                     a change is described with a dict:
-                     line: the number of the line where the change has been produced
-                     pos: the position where the replacement should be realized
+        it returns a list of pairs (line, pos) where
+            - line: és el número de línia on s'ha trobat una referència a substituir
+            - pos: és el número del caràcter dins de la línia on comença la referència a substituir
+
+        It is possible that there are more than one pair on the same line as there can be more than one reference
+        in the same line.
 
         A reference to rst can appear in the following ways:
         - the reference path are always relative to the rst. 
@@ -259,76 +246,98 @@ def check_rst_references(rstcontents, src, dst):
     """
     result = dict()
     changes = list()    # list of changes
-    for function in (look_for_images, 
+    for function in (look_for_images,
+                     look_for_figures,
                      look_for_toctrees,
                      look_for_ref,
                      look_for_doc,
                      ):
-        changes += function(rstcontents, src, dst)
-    result['result'] = len(changes) > 0
-    result['changes'] = changes
-    return result
+        changes += function(rstcontents, src)
+    return changes
+
+def check_for_image_tag(tag, rstcontents, src, accept_absolute = True):
+    """ given a image tag (e.g. '.. image::' or '.. figure::' it returns
+        the lines in rstcontents containing a image reference to src.
+
+        XXX Note: As an unconfortable curiosity, the following contents are valid in Sphinx:
+            .. figure::
+               file.png
+               :align: center
+        For simplicity, this version of the script doesn't contemplate this case.
+
+        The function returns a list of pairs of change localization
+    """
+    target = str(src)
+    changes = []
+    for nr, line in enumerate(rstcontents):
+        print(f"XXX checking line {nr} |{line}| for tag |{tag}|")
+        if tag not in line:
+            continue
+        pos_tag = line.find(tag)
+        if line[:pos_tag].strip():
+            continue    # it's not a real tag probably within a comment
+        print("XXX tag found at pos", pos_tag)
+        pos_target = line.find(target, pos_tag)
+        print(f"XXX target {target} results on {pos_target}")
+        if pos_target < 0:
+            continue    # a reference to another figure
+        contents_between_tag_and_target = line[pos_tag + len(tag):pos_target].strip()
+        if contents_between_tag_and_target:
+            if not accept_absolute or contents_between_tag_and_target != '/':
+                continue    # there's something more before the tag.
+        if line[pos_target+len(target):].strip():
+            continue    # there's something more after the tag
+        changes.append((nr, pos_target))
+    print("XXX returning changes", changes)
+    return changes
 
 ####################################################################################################
 #   helping functions for each way of referencing a file
 ####################################################################################################
 
-def look_for_ref(rstcontents, src, dst):
+def look_for_ref(rstcontents, src):
     """ This method is specialized in references :ref: """
-    return look_for_tag(':ref:', rstcontents, src, dst)
+    return look_for_tag(':ref:', rstcontents, src)
 
-def look_for_doc(rstcontents, src, dst):
+def look_for_doc(rstcontents, src):
     """ This method is specialized in references :doc: """
-    return look_for_tag(':doc:', rstcontents, src, dst)
+    return look_for_tag(':doc:', rstcontents, src)
 
-def look_for_images(rstcontents, src, dst):
-    """ this method is specialized in references to images/figures
-    """
-    regex_image = r"^(\s*\.\. (image|figure)::\ */?)(%s)$" % src
-    changes = list()
-    for nr, line in enumerate(rstcontents):
-        m = re.match(regex_image, line)
-        if not m:
-            continue
-        change = dict()
-        change['line'] = nr
-        change['src'] = line
-        change['dst'] = re.sub(regex_image, r'\1%s' % dst, line)
-        changes.append(change)
-    return changes
+def look_for_images(rstcontents, src):
+    """ this method is specialized in references to images """
+    return check_for_image_tag('.. image::', rstcontents, src)
 
-def look_for_toctrees(rstcontents, src, dst):
+def look_for_figures(rstcontents, src):
+    """ this method is specialized in references to figures """
+    return check_for_image_tag('.. figure::', rstcontents, src)
+
+def look_for_toctrees(rstcontents, src):
     """ This method is specialized in references on toctrees """
-    if src.suffix != '.rst' or dst.suffix != '.rst':
+    if src.suffix != '.rst':
         return list()       # non rst can't be in a toctree
-    regex_toctree = r"^(\s*)\.\. toctree::\s*$"
-    regex_toctree_entry = r"^(\s*)([^\s].*)?$"
+    target = str(src)
+    target_without_extension = target[:-4]
+    non_space = re.compile('\S')
+    tag = '.. toctree::'
     changes = list()
     in_toctree = False
     min_indentation = 0     # minimum indentation for items in toctree
     for nr, line in enumerate(rstcontents):
         if not in_toctree:
-            m = re.match(regex_toctree, line)
-            if m:
+            if tag in line:
                 in_toctree = True
-                min_indentation = len(m.group(1)) + 1
+                min_indentation = line.find(tag) + 1 # doctree refs should present at least this indentation
             continue
         if not line.strip():    # ignore empty lines
             continue
-        m = re.match(regex_toctree_entry, line)
-        if not m or len(m.group(1)) < min_indentation:  # end of toctree
+        m = non_space.search(line)
+        if m and m.start() < min_indentation:   # end of this toctree
             in_toctree = False
             continue
-        if not m.group(2).strip() in (str(src), str(src)[:-4]):  # not our src
-            continue
-        change = dict()
-        change['line'] = nr
-        change['src'] = line
-        if m.group(2).strip() == str(src):
-            change['dst'] = m.group(1) + str(dst)
-        else:
-            change['dst'] = m.group(1) + str(dst)[:-4]
-        changes.append(change)
+        rest_of_line = line[m.start():].strip()
+        if rest_of_line == target or rest_of_line == target_without_extension:
+            changes.append((nr, m.start()))
+
     return changes
 
 
