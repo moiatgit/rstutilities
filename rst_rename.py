@@ -146,11 +146,13 @@ def check_line_for_caption(line, src, dst):
         - state: the new state: 'caption only' if no reference found or 'new tag' if refernce has been found
         - has_changed: True if the reference has been found
         - new_line: the contents of the line after the change
+        - pos in line after processing the reference
     """
     print(f"\tXXX checking for caption only |{line}|")
     new_line = line
     has_changed = False
     new_state = 'caption only'
+    pos_end_caption = len(line)     # in case it is not found
     pos_init_caption = line.find('<') 
     if pos_init_caption >= 0:
         new_state = 'new tag'
@@ -162,7 +164,7 @@ def check_line_for_caption(line, src, dst):
             new_line = line[:pos_init_caption + 1] + dst + line[pos_end_caption:]
             has_changed = True
     print(f"XXX\t\t returning from caption only new_state {new_state} has_changed {has_changed} line |{new_line}|")
-    return new_state, has_changed, new_line
+    return new_state, has_changed, new_line, pos_end_caption + 1
 
 def check_partial_line_for_tag(tag, line, pos, src, dst):
     """ given a line and a pos to start checking, it looks for tag from pos in the line.
@@ -207,6 +209,26 @@ def check_partial_line_for_tag(tag, line, pos, src, dst):
 
     return new_state, has_changed, new_line, new_pos
 
+def check_line_for_tag(tag, line, src, dst):
+    """ checks for tag in the line
+        It will consume the whole line
+        It returns:
+        - has_changed: True if there's a change
+        - new_line: contents of the line once replaced
+    """
+    has_changed = False
+    new_line = line
+    pos = 0
+    state = 'new tag'
+    while 0 <= pos < len(line):
+        if state == 'new tag':
+            state, has_change_partial, new_line, pos = check_partial_line_for_tag(tag, new_line, pos, src, dst)
+        else: # state == 'caption only'
+            state, has_changed_partial, new_line, pos = check_line_for_caption(new_line, src, dst)
+        has_changed = has_changed or has_change_partial
+    return has_changed, new_line
+
+
 def look_for_tag(tag, rstcontents, src, dst):
     """ This method is specialized in references with directives like :ref: and :doc:
         It expects tag to contain ':ref:' or ':doc:'
@@ -215,7 +237,6 @@ def look_for_tag(tag, rstcontents, src, dst):
         - :ref:`text for caption <objectwithoutextension>`
         When object appears within <>, it can go in the next line
     """
-
     print(f"XXX look_for_ref(src {src} dst {dst})")
     if src.suffix != '.rst' or dst.suffix != '.rst':
         return list()       # non rst can't be in a toctree
@@ -224,24 +245,14 @@ def look_for_tag(tag, rstcontents, src, dst):
     changes = list()
     state = 'new tag'
     for nr, line in enumerate(rstcontents):
-        print(f"XXX\tchecking line {nr} |{line}|")
-        print(f"XXX\tstate {state}")
-        has_changed = False
-        if state == 'new tag':
-            if tag in line:
-                print(f"XXX\ttag {tag} found in line")
-                state, has_changed, new_line = check_line_for_tag(tag, line, src, dst)
-                print(f"XXX\tcheck line for tag returns {state}, {has_changed}, {new_line}")
-        else: # state == 'caption only'
-            state, has_changed, new_line = check_line_for_caption(line, src, dst)
+        has_changed, new_line = check_line_for_tag(tag, line, src, dst)
         if has_changed:
             change = {
-                'line': nr,
+                'line': nr, 
                 'src': line,
-                'dst': new_line,
+                'dst': new_line.
             }
-            changes.append(change)
-    print("XXX look_for_ref() returns", changes)
+           changes.append(change)
     return changes
 
 def check_rst_references(rstcontents, src, dst):
