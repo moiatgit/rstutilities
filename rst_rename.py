@@ -262,12 +262,50 @@ def check_rst_references(rstcontents, src, dst):
         - references can be:
           - after a figure::
           - after a image::
-          - on a toctree (with or without .rst extension)
-          - after a :ref: (including the <> variant) (without .rst extension)
-          - after a :doc: (including the <> variant) (without .rst extension)
+          - on a toctree (only for .rst with or without .rst extension)
+          - after a :ref: (only for .rst including the <> variant) (without .rst extension)
+          - after a :doc: (only for .rst including the <> variant) (without .rst extension)
           - after a literalinclude::
           - after a :download: (including the <> variant)
     """
+    def look_for_ref(rstcontents, src, dst):
+        """ This method is specialized in references with the directives:
+            :ref: and :doc:
+            These directives allow the following variants:
+            - :ref:`objectwithoutextension`
+            - :ref:`text for caption <objectwithoutextension>`
+            When object appears within <>, it can go in the next line
+        """
+        tag = ':ref:`'
+        if src.suffix != '.rst' or dst.suffix != '.rst':
+            return list()       # non rst can't be in a toctree
+        changes = list()
+        splitted_line = False
+        for nr, line in enumerate(rstcontents):
+            if tag not in line:
+                continue
+            last_pos = 0
+            pos = 0
+            trobat = False
+            while True:
+                pos = line.find(tag, last_pos)
+                if pos < last_pos:
+                    break
+                final_tag_pos = line.find('`', pos+len(tag))
+                if final_tag_pos < pos: # it must be with caption and with line splitted
+                    splitted_line = True
+
+
+
+            m = re.match(regex_ref_basic, line)
+            if m:
+                change = dict()
+                change['line'] = nr
+                change['src'] = line
+                change['dst'] = re.sub(regex_ref_basic, r'\1%s' % dst, line)
+                changes.append(change)
+        return changes
+
 
     def look_for_images(rstcontents, src, dst):
         """ this method is specialized in references to images/figures
@@ -287,10 +325,10 @@ def check_rst_references(rstcontents, src, dst):
 
     def look_for_toctrees(rstcontents, src, dst):
         """ This method is specialized in references on toctrees """
-        regex_toctree = r"^(\s*)\.\. toctree::\s*$"
-        regex_toctree_entry = r"^(\s*)([^\s].*)?$"
         if src.suffix != '.rst' or dst.suffix != '.rst':
             return list()       # non rst can't be in a toctree
+        regex_toctree = r"^(\s*)\.\. toctree::\s*$"
+        regex_toctree_entry = r"^(\s*)([^\s].*)?$"
         changes = list()
         in_toctree = False
         min_indentation = 0     # minimum indentation for items in toctree
@@ -323,7 +361,10 @@ def check_rst_references(rstcontents, src, dst):
 
     result = dict()
     changes = list()    # list of changes
-    for function in (look_for_images, look_for_toctrees):
+    for function in (look_for_images, 
+                     look_for_toctrees,
+                     look_for_ref,
+                     ):
         changes += function(rstcontents, src, dst)
     result['result'] = len(changes) > 0
     result['changes'] = changes
