@@ -308,7 +308,6 @@ def test_doc_when_not_the_target_src_with_caption():
     assert expected['result'] == obtained['result']
 
 
-
 def test_doc_when_the_target_src():
     contents = ["some contents",
                 "and a :doc:`object` that",
@@ -316,11 +315,12 @@ def test_doc_when_the_target_src():
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
     expected = { 'result': True, 'changes': [
-        { 'line': 2, 'src': 'and a :ref:`object` that', 'dst': 'and a :ref:`renamed` that' },
+        { 'line': 1, 'src': 'and a :doc:`object` that', 'dst': 'and a :doc:`renamed` that' },
     ]}
     obtained = check_rst_references(contents, src, dst)
     assert expected['result'] == obtained['result']
     assert expected['changes'] == obtained['changes']
+
 
 def test_ref_when_the_target_src_with_caption():
     contents = ["some contents",
@@ -329,7 +329,7 @@ def test_ref_when_the_target_src_with_caption():
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
     expected = { 'result': True, 'changes': [
-        { 'line': 2, 'src': 'and a :ref:`with caption <object>` that', 'dst': 'and a :ref:`with caption <renamed>` that' },
+        { 'line': 1, 'src': 'and a :ref:`with caption <object>` that', 'dst': 'and a :ref:`with caption <renamed>` that' },
     ]}
     obtained = check_rst_references(contents, src, dst)
     assert expected['result'] == obtained['result']
@@ -346,7 +346,7 @@ def test_ref_when_the_target_src_with_caption_different_line():
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
     expected = { 'result': True, 'changes': [
-        { 'line': 2, 'src': 'and a :ref:`<object>` that', 'dst': 'and a :ref:`<renamed>` that' },
+        { 'line': 3, 'src': '<object>` that', 'dst': '<renamed>` that' },
     ]}
     obtained = check_rst_references(contents, src, dst)
     assert expected['result'] == obtained['result']
@@ -365,7 +365,7 @@ def test_ref_when_the_target_src_with_caption_different_indented_line():
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
     expected = { 'result': True, 'changes': [
-        { 'line': 2, 'src': 'and a :ref:`<object>` that', 'dst': 'and a :ref:`<renamed>` that' },
+        { 'line': 3, 'src': '  <object>` that', 'dst': '  <renamed>` that' },
     ]}
     obtained = check_rst_references(contents, src, dst)
     assert expected['result'] == obtained['result']
@@ -384,7 +384,7 @@ def test_ref_when_two_targets_and_one_with_caption_different_indented_line():
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
     expected = { 'result': True, 'changes': [
-        { 'line': 2, 'src': '  <object>` and :ref:`object` that', 'dst': '  <renamed>` and :ref:`renamed` that' },
+        { 'line': 3, 'src': '  <object>` and :ref:`object` that', 'dst': '  <renamed>` and :ref:`renamed` that' },
     ]}
     obtained = check_rst_references(contents, src, dst)
     assert expected['result'] == obtained['result']
@@ -436,6 +436,23 @@ def test_doc_when_two_refs_on_same_line():
     dst = pathlib.Path('renamed.rst')
     expected = { 'result': True, 'changes': [
         { 'line': 2, 'src': 'and a :doc:`with caption <object>` and :ref:`object` that', 'dst': 'and a :doc:`with caption <renamed>` and :ref:`renamed` that' },
+    ]}
+    obtained = check_rst_references(contents, src, dst)
+    assert expected['result'] == obtained['result']
+    assert expected['changes'] == obtained['changes']
+
+def test_ref_when_the_target_src_with_three_refs_with_splitted():
+    contents = ["some contents",
+                "and a :ref:`with ",
+                "caption ",
+                "<object>` that :doc:`object` and :ref:`another",
+                "splitted caption <object>` that",
+                "should change"]
+    src = pathlib.Path('object.rst')
+    dst = pathlib.Path('renamed.rst')
+    expected = { 'result': True, 'changes': [
+        { 'line': 3, 'src': '<object>` that :doc:`object` and :ref:`another', 'dst': '<renamed>` that :doc:`renamed` and :ref:`another' },
+        { 'line': 4, 'src': 'splitted caption <object>` that', 'dst': 'splitted caption <renamed>` that' },
     ]}
     obtained = check_rst_references(contents, src, dst)
     assert expected['result'] == obtained['result']

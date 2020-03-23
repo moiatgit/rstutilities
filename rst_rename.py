@@ -268,9 +268,9 @@ def check_rst_references(rstcontents, src, dst):
           - after a literalinclude::
           - after a :download: (including the <> variant)
     """
-    def look_for_ref(rstcontents, src, dst):
-        """ This method is specialized in references with the directives:
-            :ref: and :doc:
+    def look_for_tag(tag, rstcontents, src, dst):
+        """ This method is specialized in references with directives like :ref: and :doc:
+            It expects tag to contain ':ref:' or ':doc:'
             These directives allow the following variants:
             - :ref:`objectwithoutextension`
             - :ref:`text for caption <objectwithoutextension>`
@@ -309,7 +309,7 @@ def check_rst_references(rstcontents, src, dst):
                     else:
                         new_pos = pos_close_tag + 1
                         tag_content = line[pos_open_tag+1: pos_close_tag]
-                        print(f"XXX\t\t\t close tag found at pos {pos_close_tag} with contents |{tag_content}|")
+                        print(f"XXX\t\t\t close tag found at {pos_close_tag} with contents |{tag_content}|")
                         if tag_content == src:  # tag`target`
                             new_line = line[:pos_open_tag+1] + dst + line[pos_close_tag:]
                             print(f"XXX\t\t\t new_line |{new_line}|")
@@ -318,10 +318,11 @@ def check_rst_references(rstcontents, src, dst):
                             pos_init_caption = line.find('<', pos_tag + 1)
                             pos_end_caption = line.find('>', pos_init_caption + 1)
                             assert pos_init_caption < pos_end_caption, "malformed rst on line %s" % line
-                            caption_content = line[pos_init_caption:pos_end_caption]
+                            caption_content = line[pos_init_caption + 1:pos_end_caption]
+                            print(f"XXX\t\t\t it is a caption reference |{caption_content}|")
                             if caption_content == src:
                                 has_changed = True
-                                new_line = line[:pos_init_caption] + dst + line[pos_end_caption:]
+                                new_line = line[:pos_init_caption + 1] + dst + line[pos_end_caption:]
                 else:
                     new_pos = len(line)         # no more tags here
 
@@ -351,6 +352,7 @@ def check_rst_references(rstcontents, src, dst):
                 - has_changed: True if the reference has been found
                 - new_line: the contents of the line after the change
             """
+            print(f"\tXXX checking for caption only |{line}|")
             new_line = line
             has_changed = False
             new_state = 'caption only'
@@ -359,14 +361,15 @@ def check_rst_references(rstcontents, src, dst):
                 new_state = 'new tag'
                 pos_end_caption = line.find('>', pos_init_caption)
                 assert pos_init_caption < pos_end_caption, "malformed rst on line %s" % line
-                reference_contents = line[pos_init_caption: pos_end_caption]
+                reference_contents = line[pos_init_caption +1:pos_end_caption]
+                print(f"\t\tline has a potential reference between {pos_init_caption} and {pos_end_caption}: |{reference_contents}|")
                 if reference_contents == src:
-                    new_line = line[:pos_init_caption] + dst + line[pos_end_caption:]
+                    new_line = line[:pos_init_caption + 1] + dst + line[pos_end_caption:]
                     has_changed = True
+            print(f"XXX\t\t returning from caption only new_state {new_state} has_changed {has_changed} line |{new_line}|")
             return new_state, has_changed, new_line
 
         print(f"XXX look_for_ref(src {src} dst {dst})")
-        tag = ':ref:`'
         if src.suffix != '.rst' or dst.suffix != '.rst':
             return list()       # non rst can't be in a toctree
         src = str(src)[:-4] # remove extension since references go without
@@ -394,6 +397,13 @@ def check_rst_references(rstcontents, src, dst):
         print("XXX look_for_ref() returns", changes)
         return changes
 
+    def look_for_ref(rstcontents, src, dst):
+        """ This method is specialized in references :ref: """
+        return look_for_tag(':ref:', rstcontents, src, dst)
+
+    def look_for_doc(rstcontents, src, dst):
+        """ This method is specialized in references :doc: """
+        return look_for_tag(':doc:', rstcontents, src, dst)
 
     def look_for_images(rstcontents, src, dst):
         """ this method is specialized in references to images/figures
@@ -452,6 +462,7 @@ def check_rst_references(rstcontents, src, dst):
     for function in (look_for_images, 
                      look_for_toctrees,
                      look_for_ref,
+                     look_for_doc,
                      ):
         changes += function(rstcontents, src, dst)
     result['result'] = len(changes) > 0
