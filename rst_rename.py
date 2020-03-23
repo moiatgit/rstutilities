@@ -242,8 +242,7 @@ def check_rst_references(rstcontents, src, dst):
             changes: a list of dict describing the changes in the file
                      a change is described with a dict:
                      line: the number of the line where the change has been produced
-                     src: the original contents of the line
-                     dst: the proposed change of the line
+                     pos: the position where the replacement should be realized
 
         A reference to rst can appear in the following ways:
         - the reference path are always relative to the rst. 

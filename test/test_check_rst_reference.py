@@ -11,18 +11,18 @@ def test_when_part_of_a_word():
     contents = ["something that contains objects", "but not the stem alone"]
     src = pathlib.Path('object.png')
     dst = pathlib.Path('itdoesntmatter')
-    expected = { 'result': False }
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
+    expected = list()
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 def test_when_part_of_a_regular_sentence():
     """ src is part of a regular sentence in contents but it is not a real reference """
     contents = ["something that contains the exact objects.png but", "it is not a real reference"]
     src = pathlib.Path('object.png')
     dst = pathlib.Path('itdoesntmatter')
-    expected = { 'result': False }
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
+    expected = list()
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_when_not_referenced_by_an_image():
@@ -35,9 +35,9 @@ def test_when_not_referenced_by_an_image():
                 ]
     src = pathlib.Path('object.png')
     dst = pathlib.Path('itdoesntmatter')
-    expected = { 'result': False, }
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
+    expected = list()
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_when_referenced_by_an_image():
@@ -50,10 +50,9 @@ def test_when_referenced_by_an_image():
                 ]
     src = pathlib.Path('object.png')
     dst = pathlib.Path('renamed.png')
-    expected = { 'result': True, 'changes': [ { 'line': 2, 'src': '.. image:: object.png', 'dst': '.. image:: renamed.png' } ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    expected = [(2, 11)]
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_when_referenced_by_an_absolute_image():
@@ -66,10 +65,9 @@ def test_when_referenced_by_an_absolute_image():
                 ]
     src = pathlib.Path('object.png')
     dst = pathlib.Path('renamed.png')
-    expected = { 'result': True, 'changes': [ { 'line': 2, 'src': '.. image:: /object.png', 'dst': '.. image:: /renamed.png' } ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    expected = [(2, 12)]
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_when_referenced_by_a_figure():
@@ -82,10 +80,9 @@ def test_when_referenced_by_a_figure():
                 ]
     src = pathlib.Path('object.png')
     dst = pathlib.Path('renamed.png')
-    expected = { 'result': True, 'changes': [ { 'line': 2, 'src': '.. figure:: object.png', 'dst': '.. figure:: renamed.png' } ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    expected = [(2, 12)]
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_when_referenced_by_a_figure_with_path():
@@ -98,10 +95,9 @@ def test_when_referenced_by_a_figure_with_path():
                 ]
     src = pathlib.Path('object.png')
     dst = pathlib.Path('renamed.png')
-    expected = { 'result': True, 'changes': [ { 'line': 2, 'src': '.. figure:: object.png', 'dst': '.. figure:: renamed.png' } ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    expected = [(2, 12)]
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_when_referenced_by_image_and_figure():
@@ -117,13 +113,9 @@ def test_when_referenced_by_image_and_figure():
                 ]
     src = pathlib.Path('object.png')
     dst = pathlib.Path('renamed.png')
-    expected = { 'result': True, 'changes': [
-        { 'line': 2, 'src': '.. image:: object.png', 'dst': '.. image:: renamed.png' },
-        { 'line': 5, 'src': '.. figure:: /object.png', 'dst': '.. figure:: /renamed.png' }
-    ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    expected = [(2, 11), (5, 13)]
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 ####################################################################################################
 
@@ -140,9 +132,9 @@ def test_when_looking_in_a_toctree_for_non_rst_src():
                 ]
     src = pathlib.Path('object.txt')
     dst = pathlib.Path('renamed.rst')
-    expected = { 'result': False,}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
+    expected = list()
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_when_looking_in_a_toctree_for_non_rst_dst():
@@ -158,9 +150,9 @@ def test_when_looking_in_a_toctree_for_non_rst_dst():
                 ]
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.txt')
-    expected = { 'result': False,}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
+    expected = list()
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_when_first_in_a_toctree():
@@ -179,9 +171,8 @@ def test_when_first_in_a_toctree():
     expected = { 'result': True, 'changes': [
         { 'line': 5, 'src': '      object.rst', 'dst': '      renamed.rst' },
     ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_when_first_in_a_toctree_without_extension():
@@ -200,9 +191,8 @@ def test_when_first_in_a_toctree_without_extension():
     expected = { 'result': True, 'changes': [
         { 'line': 5, 'src': '      object', 'dst': '      renamed' },
     ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_when_nth_a_toctree():
@@ -222,9 +212,8 @@ def test_when_nth_a_toctree():
     expected = { 'result': True, 'changes': [
         { 'line': 6, 'src': '      object.rst', 'dst': '      renamed.rst' },
     ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_when_out_of_the_toctree():
@@ -242,9 +231,9 @@ def test_when_out_of_the_toctree():
                 ]
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
-    expected = { 'result': False,}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
+    expected = list()
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 ####################################################################################################
@@ -256,9 +245,9 @@ def test_ref_when_not_the_target_src():
                 "should not change"]
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
-    expected = { 'result': False,}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
+    expected = list()
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_ref_when_not_the_target_src_with_caption():
@@ -267,9 +256,9 @@ def test_ref_when_not_the_target_src_with_caption():
                 "should not change"]
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
-    expected = { 'result': False,}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
+    expected = list()
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_ref_when_the_target_src():
@@ -281,9 +270,8 @@ def test_ref_when_the_target_src():
     expected = { 'result': True, 'changes': [
         { 'line': 1, 'src': 'and a :ref:`object` that', 'dst': 'and a :ref:`renamed` that' },
     ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_doc_when_not_the_target_src():
@@ -292,9 +280,9 @@ def test_doc_when_not_the_target_src():
                 "should not change"]
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
-    expected = { 'result': False,}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
+    expected = list()
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_doc_when_not_the_target_src_with_caption():
@@ -303,9 +291,9 @@ def test_doc_when_not_the_target_src_with_caption():
                 "should not change"]
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
-    expected = { 'result': False,}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
+    expected = list()
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_doc_when_the_target_src():
@@ -317,9 +305,8 @@ def test_doc_when_the_target_src():
     expected = { 'result': True, 'changes': [
         { 'line': 1, 'src': 'and a :doc:`object` that', 'dst': 'and a :doc:`renamed` that' },
     ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_ref_when_the_target_src_with_caption():
@@ -331,9 +318,8 @@ def test_ref_when_the_target_src_with_caption():
     expected = { 'result': True, 'changes': [
         { 'line': 1, 'src': 'and a :ref:`with caption <object>` that', 'dst': 'and a :ref:`with caption <renamed>` that' },
     ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 
@@ -348,9 +334,8 @@ def test_ref_when_the_target_src_with_caption_different_line():
     expected = { 'result': True, 'changes': [
         { 'line': 3, 'src': '<object>` that', 'dst': '<renamed>` that' },
     ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_ref_when_the_target_src_with_caption_different_indented_line():
@@ -367,9 +352,8 @@ def test_ref_when_the_target_src_with_caption_different_indented_line():
     expected = { 'result': True, 'changes': [
         { 'line': 3, 'src': '  <object>` that', 'dst': '  <renamed>` that' },
     ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_ref_when_two_targets_and_one_with_caption_different_indented_line():
@@ -386,9 +370,8 @@ def test_ref_when_two_targets_and_one_with_caption_different_indented_line():
     expected = { 'result': True, 'changes': [
         { 'line': 3, 'src': '  <object>` and :ref:`object` that', 'dst': '  <renamed>` and :ref:`renamed` that' },
     ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_doc_when_not_a_rst_in_src():
@@ -397,9 +380,9 @@ def test_doc_when_not_a_rst_in_src():
                 "should not change"]
     src = pathlib.Path('object.txt')
     dst = pathlib.Path('renamed.rst')
-    expected = { 'result': False,}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
+    expected = list()
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_doc_when_not_a_rst_in_dst():
@@ -408,9 +391,9 @@ def test_doc_when_not_a_rst_in_dst():
                 "should not change"]
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.txt')
-    expected = { 'result': False,}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
+    expected = list()
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 
@@ -420,12 +403,9 @@ def test_doc_when_the_target_src_with_caption():
                 "should change"]
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
-    expected = { 'result': True, 'changes': [
-        { 'line': 1, 'src': 'and a :doc:`with caption<object>` that', 'dst': 'and a :doc:`with caption<renamed>` that' },
-    ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    expected = [(1, 25)]
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
 
 def test_doc_when_two_refs_on_same_line():
@@ -434,13 +414,10 @@ def test_doc_when_two_refs_on_same_line():
                 "should change"]
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
-    expected = { 'result': True, 'changes': [
-        { 'line': 1, 'src': 'and a :doc:`with caption<object>` and :ref:`object` that', 'dst': 'and a :doc:`with caption<renamed>` and :ref:`renamed` that' },
-    ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    print("XXX YYY obtained changes amount to ", len(obtained['changes']))
-    assert expected['changes'] == obtained['changes']
+    expected = [(1, 25)]
+    obtained = check_rst_references(contents)
+    assert expected == obtained
+
 
 def test_ref_when_the_target_src_with_three_refs_with_splitted():
     contents = ["some contents",
@@ -451,11 +428,7 @@ def test_ref_when_the_target_src_with_three_refs_with_splitted():
                 "should change"]
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
-    expected = { 'result': True, 'changes': [
-        { 'line': 3, 'src': '<object>` that :doc:`object` and :ref:`another', 'dst': '<renamed>` that :doc:`renamed` and :ref:`another' },
-        { 'line': 4, 'src': 'splitted caption <object>` that', 'dst': 'splitted caption <renamed>` that' },
-    ]}
-    obtained = check_rst_references(contents, src, dst)
-    assert expected['result'] == obtained['result']
-    assert expected['changes'] == obtained['changes']
+    expected = [(3, 1), (3, 21), (4, 18)]
+    obtained = check_rst_references(contents)
+    assert expected == obtained
 
