@@ -421,7 +421,7 @@ def test_doc_when_the_target_src_with_caption():
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
     expected = { 'result': True, 'changes': [
-        { 'line': 2, 'src': 'and a :doc:`with caption <object>` that', 'dst': 'and a :doc:`with caption <renamed>` that' },
+        { 'line': 1, 'src': 'and a :doc:`with caption<object>` that', 'dst': 'and a :doc:`with caption<renamed>` that' },
     ]}
     obtained = check_rst_references(contents, src, dst)
     assert expected['result'] == obtained['result']
@@ -435,10 +435,11 @@ def test_doc_when_two_refs_on_same_line():
     src = pathlib.Path('object.rst')
     dst = pathlib.Path('renamed.rst')
     expected = { 'result': True, 'changes': [
-        { 'line': 2, 'src': 'and a :doc:`with caption <object>` and :ref:`object` that', 'dst': 'and a :doc:`with caption <renamed>` and :ref:`renamed` that' },
+        { 'line': 1, 'src': 'and a :doc:`with caption<object>` and :ref:`object` that', 'dst': 'and a :doc:`with caption<renamed>` and :ref:`renamed` that' },
     ]}
     obtained = check_rst_references(contents, src, dst)
     assert expected['result'] == obtained['result']
+    print("XXX YYY obtained changes amount to ", len(obtained['changes']))
     assert expected['changes'] == obtained['changes']
 
 def test_ref_when_the_target_src_with_three_refs_with_splitted():

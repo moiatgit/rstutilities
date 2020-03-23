@@ -112,6 +112,12 @@ def check_options(options):
 # renaming suport
 ####################################################################################################
 
+### XXX OK: the problem is:
+#when there's more than one differnt change in the same line, it will dup the change
+#What should be done is to keep the list of lines with changes and then replace properly.
+#To do so, it would be necessari, not only to indicate the nr. of the affected line, but the starting pos of the
+#item to be replaced!
+#Therefore, the rest of the modules DO NOT HAVE to know about the dst
 
 def check_line_for_caption(line, src, dst):
     """ checks for <src> in line
@@ -132,7 +138,7 @@ def check_line_for_caption(line, src, dst):
     pos_init_caption = line.find('<') 
     if pos_init_caption >= 0:
         new_state = 'new tag'
-        pos_end_caption = line.find('>', pos_init_caption)
+        pos_end_caption = line.find('>', pos_init_caption + 1)
         assert pos_init_caption < pos_end_caption, "malformed rst on line %s" % line
         reference_contents = line[pos_init_caption +1:pos_end_caption]
         print(f"\t\tline has a potential reference between {pos_init_caption} and {pos_end_caption}: |{reference_contents}|")
@@ -140,7 +146,6 @@ def check_line_for_caption(line, src, dst):
             new_line = line[:pos_init_caption + 1] + dst + line[pos_end_caption:]
             has_changed = True
 
-    print(f"XXX\t check_line_for_captionº() returns {new_state}, {has_changed}, |{new_line}|, {pos_end_caption +1}")
     return new_state, has_changed, new_line, pos_end_caption + 1
 
 def check_partial_line_for_tag(tag, line, pos, src, dst):
@@ -178,10 +183,9 @@ def check_partial_line_for_tag(tag, line, pos, src, dst):
     else:
         new_pos = len(line)         # no more tags here
 
-    print(f"XXX\t check_partial_line_for_tag() returns {new_state}, {has_changed}, |{new_line}|, {new_pos}")
     return new_state, has_changed, new_line, new_pos
 
-def check_line_for_tag(tag, line, src, dst):
+def check_line_for_tag(tag, state, line, src, dst):
     """ checks for tag in the line
         It will consume the whole line
         It returns:
@@ -191,16 +195,14 @@ def check_line_for_tag(tag, line, src, dst):
     has_changed = False
     new_line = line
     pos = 0
-    state = 'new tag'
     while 0 <= pos < len(line):
-        print(f"XXX check_line_for_tag with status {state} on pos {pos} for line |{line}|")
         if state == 'new tag':
-            state, has_change_partial, new_line, pos = check_partial_line_for_tag(tag, new_line, pos, src, dst)
+            state, has_changed_partial, new_line, pos = check_partial_line_for_tag(tag, new_line, pos, src, dst)
         else: # state == 'caption only'
-            print("XXX\t we are on caption only")
             state, has_changed_partial, new_line, pos = check_line_for_caption(new_line, src, dst)
-        has_changed = has_changed or has_change_partial
-    return has_changed, new_line
+        has_changed = has_changed or has_changed_partial
+    print(f"XXX CHECK_LINE_FOR_TAG() is returning {has_changed}, |{new_line}|, {state}")
+    return has_changed, new_line, state
 
 
 def look_for_tag(tag, rstcontents, src, dst):
@@ -218,8 +220,8 @@ def look_for_tag(tag, rstcontents, src, dst):
     changes = list()
     state = 'new tag'
     for nr, line in enumerate(rstcontents):
-        print(f"XXX look_for_tag() checking line {nr}")
-        has_changed, new_line = check_line_for_tag(tag, line, src, dst)
+        print(f"XXX on line {nr} |{line}|")
+        has_changed, new_line, state = check_line_for_tag(tag, state, line, src, dst)
         if has_changed:
             change = {
                 'line': nr, 
@@ -227,6 +229,7 @@ def look_for_tag(tag, rstcontents, src, dst):
                 'dst': new_line,
             }
             changes.append(change)
+    print(f"XXX look_for_tag() return {changes}")
     return changes
 
 def check_rst_references(rstcontents, src, dst):
