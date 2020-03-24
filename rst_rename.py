@@ -324,6 +324,31 @@ def check_for_image_tag(tag, rstcontents, src, accept_absolute = True):
     return changes
 
 
+def create_representation(linesrc, linedst, src, dst):
+    """ given the source and the renamed line, and the source and destination names of the file,
+        it composes and returns a new line highlighting the changes """
+    if src.endswith('.rst'):    # it can appear without extension
+        src = src[:-4]
+        dst = dst[:-4]
+    linesrclist = list(linesrc)
+    linedstlist = list(linedst)
+    linereprlist = list()
+    srcpos = 0
+    dstpos = 0
+    while srcpos < len(linesrc):
+        if linesrclist[srcpos] == linedstlist[dstpos]:
+            linereprlist.append(linesrclist[srcpos])
+            srcpos += 1
+            dstpos += 1
+            continue
+        linereprlist.append(_HIGHLIGHT_ESCAPE)
+        linereprlist.append(dst)
+        linereprlist.append(_STANDARD_SCAPE)
+        srcpos += len(src)
+        dstpos += len(dst)
+    return "".join(linereprlist)
+
+
 def expand_changes_on_contents(rstcontents, changes, src, dst):
     """
         Given
@@ -346,30 +371,6 @@ def expand_changes_on_contents(rstcontents, changes, src, dst):
             dst = dst[:-4]
         return line[:pos] + dst + line[pos + len(src):]
 
-
-    def create_representation(linesrc, linedst, src, dst):
-        """ given the source and the renamed line, and the source and destination names of the file,
-            it composes and returns a new line highlighting the changes """
-        if src.endswith('.rst'):    # it can appear without extension
-            src = src[:-4]
-            dst = dst[:-4]
-        linesrclist = list(linesrc)
-        linedstlist = list(linedst)
-        linereprlist = list()
-        srcpos = 0
-        dstpos = 0
-        while srcpos < len(linesrc):
-            if linesrclist[srcpos] == linedstlist[dstpos]:
-                linereprlist.append(linesrclist[srcpos])
-                srcpos += 1
-                dstpos += 1
-                continue
-            linereprlist.append(_HIGHLIGHT_ESCAPE)
-            linereprlist.append(dst)
-            linereprlist.append(_STANDARD_SCAPE)
-            srcpos += len(src)
-            dstpos += len(dst)
-        return "".join(linereprlist)
 
     expanded_changes = list()
     changed_lines = dict()
