@@ -202,7 +202,7 @@ def check_line_for_tag(tag, reference_splitted, line, target):
     return reference_splitted, positions
 
 
-def look_for_tag(tag, rstcontents, src):
+def look_for_tag(tag, rstcontents, src, rst_only=True):
     """ This method is specialized in references with directives like :ref: and :doc:
         It expects tag to contain ':ref:' or ':doc:'
         These directives allow the following variants:
@@ -213,9 +213,12 @@ def look_for_tag(tag, rstcontents, src):
             with
             a caption <target>`
     """
-    if src.suffix != '.rst':
-        return list()       # non rst can't be in a toctree
-    target = str(src)[:-4] # remove extension since references go without
+    if rst_only:
+        if src.suffix != '.rst':
+            return list()       # non rst can't be in a toctree
+        target = str(src)[:-4]  # remove extension since rst_only references go without
+    else:
+        target = str(src)       # keep the extension when non rst_only
     changes = list()
     reference_splitted = False   # initially, the tag is expected
     for nr, line in enumerate(rstcontents):
@@ -254,6 +257,7 @@ def check_rst_references(rstcontents, src):
                      look_for_toctrees,
                      look_for_ref,
                      look_for_doc,
+                     look_for_dowmload,
                      ):
         changes += function(rstcontents, src)
     return changes
@@ -304,6 +308,10 @@ def look_for_ref(rstcontents, src):
 def look_for_doc(rstcontents, src):
     """ This method is specialized in references :doc: """
     return look_for_tag(':doc:', rstcontents, src)
+
+def look_for_dowmload(rstcontents, src):
+    """ This method is specialized in references :download: """
+    return look_for_tag(':download:', rstcontents, src, rst_only=False)
 
 def look_for_images(rstcontents, src):
     """ this method is specialized in references to images """

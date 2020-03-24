@@ -431,3 +431,108 @@ def test_ref_when_the_target_src_with_three_refs_with_splitted():
     obtained = check_rst_references(contents, src)
     assert set(expected) == set(obtained)
 
+####################################################################################################
+
+
+def test_download_when_not_the_target_src():
+    contents = ["some contents",
+                "and a :dowload:`toanothercontent` that",
+                "should not change"]
+    src = pathlib.Path('object.tar.gz')
+    dst = pathlib.Path('renamed.rst')
+    expected = list()
+    obtained = check_rst_references(contents, src)
+    assert set(expected) == set(obtained)
+
+
+def test_download_when_not_the_target_src_with_caption():
+    contents = ["some contents",
+                "and a :download:`with caption <toanothercontent>` that",
+                "should not change"]
+    src = pathlib.Path('object.tar.gz')
+    dst = pathlib.Path('renamed.rst')
+    expected = list()
+    obtained = check_rst_references(contents, src)
+    assert set(expected) == set(obtained)
+
+
+def test_download_when_the_target_src():
+    contents = ["some contents",
+                "and a :download:`object.tar.gz` that",
+                "should change"]
+    src = pathlib.Path('object.tar.gz')
+    dst = pathlib.Path('renamed.rst')
+    expected = [(1, 17)]
+    obtained = check_rst_references(contents, src)
+    assert set(expected) == set(obtained)
+
+
+def test_download_when_the_target_src_with_caption():
+    contents = ["some contents",
+                "and a :download:`with caption <object.tar.gz>` that",
+                "should change"]
+    src = pathlib.Path('object.tar.gz')
+    dst = pathlib.Path('renamed.rst')
+    expected = [(1, 31)]
+    obtained = check_rst_references(contents, src)
+    assert set(expected) == set(obtained)
+
+
+
+def test_download_when_the_target_src_with_caption_different_line():
+    contents = ["some contents",
+                "and a :download:`with ",
+                "caption ",
+                "<object.tar.gz>` that",
+                "should change"]
+    src = pathlib.Path('object.tar.gz')
+    dst = pathlib.Path('renamed.rst')
+    expected = [(3, 1)]
+    obtained = check_rst_references(contents, src)
+    assert set(expected) == set(obtained)
+
+
+def test_download_when_the_target_src_with_caption_different_indented_line():
+    contents = ["some contents",
+                "* and a :download:`with ",
+                "  caption ",
+                "  <object.tar.gz>` that",
+                "  should change",
+                "",
+                "* another point",
+                ]
+    src = pathlib.Path('object.tar.gz')
+    dst = pathlib.Path('renamed.rst')
+    expected = [(3, 3)]
+    obtained = check_rst_references(contents, src)
+    assert set(expected) == set(obtained)
+
+
+def test_download_when_two_targets_and_one_with_caption_different_indented_line():
+    contents = ["some contents",
+                "* and a :download:`with ",
+                "  caption ",
+                "  <object.tar.gz>` and :download:`object.tar.gz` that",
+                "  should change",
+                "",
+                "* another point",
+                ]
+    src = pathlib.Path('object.tar.gz')
+    dst = pathlib.Path('renamed.rst')
+    expected = [(3, 3), (3, 34)]
+    obtained = check_rst_references(contents, src)
+    assert set(expected) == set(obtained)
+
+def test_download_when_the_target_src_with_three_refs_with_splitted():
+    contents = ["some contents",
+                "and a :download:`with ",
+                "caption ",
+                "<object.tar.gz>` that :doc:`anotherobject` and :download:`another",
+                "splitted caption <object.tar.gz>` that",
+                "should change"]
+    src = pathlib.Path('object.tar.gz')
+    dst = pathlib.Path('renamed.rst')
+    expected = [(3, 1), (4, 18)]
+    obtained = check_rst_references(contents, src)
+    assert set(expected) == set(obtained)
+
