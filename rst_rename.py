@@ -254,6 +254,7 @@ def check_rst_references(rstcontents, src):
     changes = list()    # list of changes
     for function in (look_for_images,
                      look_for_figures,
+                     look_for_literalinclude,
                      look_for_toctrees,
                      look_for_ref,
                      look_for_doc,
@@ -320,6 +321,10 @@ def look_for_images(rstcontents, src):
 def look_for_figures(rstcontents, src):
     """ this method is specialized in references to figures """
     return check_for_image_tag('.. figure::', rstcontents, src)
+
+def look_for_literalinclude(rstcontents, src):
+    """ this method is specialized in references to literalinclude"""
+    return check_for_image_tag('.. literalinclude::', rstcontents, src)
 
 def look_for_toctrees(rstcontents, src):
     """ This method is specialized in references on toctrees """

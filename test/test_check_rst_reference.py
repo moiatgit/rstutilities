@@ -131,6 +131,67 @@ def test_when_referenced_by_image_and_figure():
     obtained = check_rst_references(contents, src)
     assert set(expected) == set(obtained)
 
+
+def test_when_not_referenced_by_an_literalinclude_because_prefix():
+    contents = ["A reference with image to another file",
+                "",
+                ".. literalinclude:: anotherobject.java",
+                "   :language: java",
+                "",
+                "And other things",
+                ]
+    src = pathlib.Path('object.java')
+    dst = pathlib.Path('itdoesntmatter')
+    expected = list()
+    obtained = check_rst_references(contents, src)
+    assert set(expected) == set(obtained)
+
+def test_when_not_referenced_by_an_literalinclude_because_suffix():
+    contents = ["A reference with image to another file",
+                "",
+                ".. literalinclude:: object.javaX",
+                "   :language: java",
+                "",
+                "And other things",
+                ]
+    src = pathlib.Path('object.java')
+    dst = pathlib.Path('itdoesntmatter')
+    expected = list()
+    obtained = check_rst_references(contents, src)
+    assert set(expected) == set(obtained)
+
+
+def test_when_referenced_by_an_literalinclude():
+    contents = ["A real reference with image",
+                "",
+                ".. literalinclude:: object.java",
+                "   :language: java",
+                "",
+                "And other things",
+                ]
+    src = pathlib.Path('object.java')
+    dst = pathlib.Path('renamed.png')
+    expected = [(2, 20)]
+    obtained = check_rst_references(contents, src)
+    assert set(expected) == set(obtained)
+
+
+def test_when_referenced_by_an_absolute_literalinclude():
+    contents = ["A real reference with image",
+                "",
+                ".. literalinclude:: /object.java",
+                "   :language: java",
+                "",
+                "And other things",
+                ]
+    src = pathlib.Path('object.java')
+    dst = pathlib.Path('renamed.png')
+    expected = [(2, 21)]
+    obtained = check_rst_references(contents, src)
+    assert set(expected) == set(obtained)
+
+
+
 ####################################################################################################
 
 def test_when_looking_in_a_toctree_for_non_rst_src():
