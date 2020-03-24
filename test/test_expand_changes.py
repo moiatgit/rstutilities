@@ -1,7 +1,48 @@
 """
     pytest: tests the functioning of rst_rename.expand_changes_on_contents()
 """
-from rst_rename import expand_changes_on_contents, _HIGHLIGHT_ESCAPE, _STANDARD_SCAPE
+from rst_rename import expand_changes_on_contents, create_representation, _HIGHLIGHT_ESCAPE, _STANDARD_SCAPE
+
+####################################################################################################
+
+def test_create_repr_when_basic():
+    srcline = "object.png"
+    dstline = "renamed.png"
+    src = "object.png"
+    dst = "renamed.png"
+    expected = "%srenamed%s.png" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE)
+    obtained = create_representation(srcline, dstline, src, dst)
+    assert expected == obtained
+
+def test_create_repr_when_same_folder():
+    srcline = "_img/object.png"
+    dstline = "_img/renamed.png"
+    src = "_img/object.png"
+    dst = "_img/renamed.png"
+    expected = "_img/%srenamed%s.png" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE)
+    obtained = create_representation(srcline, dstline, src, dst)
+    assert expected == obtained
+
+def test_create_repr_when_different_folder():
+    srcline = "_img/object.png"
+    dstline = "_imgage/renamed.png"
+    src = "_img/object.png"
+    dst = "_imgage/renamed.png"
+    expected = "_img%sage/renamed%s.png" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE)
+    obtained = create_representation(srcline, dstline, src, dst)
+    assert expected == obtained
+
+def test_create_repr_when_different_folder_same_name():
+    srcline = "_img/object.png"
+    dstline = "_imgage/object.png"
+    src = "_img/object.png"
+    dst = "_imgage/object.png"
+    expected = "_img%sage%s/object.png" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE)
+    obtained = create_representation(srcline, dstline, src, dst)
+    assert expected == obtained
+
+
+####################################################################################################
 
 def test_when_no_changes():
     """ This can't happen since expand_changes_on_contents() is only called when there's at least one change
@@ -23,7 +64,7 @@ def test_basic_change():
         "linenr": 0,
         "src": "object.png",
         "dst": "renamed.png",
-        "repr": "%srenamed.png%s" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
+        "repr": "%srenamed%s.png" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
     }]
     obtained = expand_changes_on_contents(contents, changes, src, dst)
     assert 1 == len(obtained)
@@ -41,7 +82,7 @@ def test_basic_change_with_shorter_renamed():
         "linenr": 0,
         "src": "objectwithlongname.png",
         "dst": "renamed.png",
-        "repr": "%srenamed.png%s" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
+        "repr": "%srenamed%s.png" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
     }]
     obtained = expand_changes_on_contents(contents, changes, src, dst)
     assert 1 == len(obtained)
@@ -60,7 +101,7 @@ def test_download_change():
         "linenr": 0,
         "src": "line :download:`object.png` and so on",
         "dst": "line :download:`renamed.png` and so on",
-        "repr": "line :download:`%srenamed.png%s` and so on" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
+        "repr": "line :download:`%srenamed%s.png` and so on" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
     }]
     obtained = expand_changes_on_contents(contents, changes, src, dst)
     assert 1 == len(obtained)
@@ -154,7 +195,7 @@ def test_basic_change_with_same_path():
         "linenr": 0,
         "src": "_resources/object.png",
         "dst": "_resources/renamed.png",
-        "repr": "_resources/%srenamed.png%s" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
+        "repr": "_resources/%srenamed%s.png" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
     }]
     obtained = expand_changes_on_contents(contents, changes, src, dst)
     assert 1 == len(obtained)
@@ -173,7 +214,7 @@ def test_basic_change_with_different_path():
         "linenr": 0,
         "src": "_resources/object.png",
         "dst": "_images/renamed.png",
-        "repr": "%s_images/renamed.png%s" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
+        "repr": "_%simages/renamed%s.png" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
     }]
     obtained = expand_changes_on_contents(contents, changes, src, dst)
     assert 1 == len(obtained)
@@ -192,7 +233,7 @@ def test_basic_change_with_different_path_but_same_name():
         "linenr": 0,
         "src": "_resources/object.png",
         "dst": "_images/object.png",
-        "repr": "%s_images/%sobject.png" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
+        "repr": "_%simag%ses/object.png" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
     }]
     obtained = expand_changes_on_contents(contents, changes, src, dst)
     assert 1 == len(obtained)

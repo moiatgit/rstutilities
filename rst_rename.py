@@ -327,9 +327,8 @@ def check_for_image_tag(tag, rstcontents, src, accept_absolute = True):
 def create_representation(linesrc, linedst, src, dst):
     """ given the source and the renamed line, and the source and destination names of the file,
         it composes and returns a new line highlighting the changes """
-    if src.endswith('.rst'):    # it can appear without extension
-        src = src[:-4]
-        dst = dst[:-4]
+
+    src, dst = clean_commonalities(src, dst)
     linesrclist = list(linesrc)
     linedstlist = list(linedst)
     linereprlist = list()
@@ -448,6 +447,44 @@ def look_for_toctrees(rstcontents, src):
             changes.append((nr, m.start()))
 
     return changes
+
+####################################################################################################
+# Other helping functions
+####################################################################################################
+
+def clean_commonalities(text1, text2):
+    """ given two strings, it creates two new strings such that 
+        - are substrings of the originals
+        - the longest common prefix in the originals do not appear in the results
+        - the longest common suffix in the originals do not appear in the results
+
+        >>> clean_commonalities('commonpreffix1difference1', 'commonpreffix2difference2')
+        ('1difference1', '2difference2')
+        >>> clean_commonalities('1difference1commonsuffix','2difference2commonsuffix')
+        ('1difference1', '2difference2')
+        >>> clean_commonalities('commonpreffix1difference1commonsuffix','commonpreffix2difference2commonsuffix')
+        ('1difference1', '2difference2')
+        >>> clean_commonalities('commonall','commonall')
+        ('', '')
+        >>> clean_commonalities('','')
+        ('', '')
+        >>> clean_commonalities('equal','different')
+        ('equal', 'different')
+    """
+    if not text1 or not text2:
+        return text1, text2
+    preffix = True
+    pos_ini = 0
+    while pos_ini < min(len(text1), len(text2)) and text1[pos_ini] == text2[pos_ini]:
+        pos_ini += 1
+
+    pos_fin1 = len(text1)
+    pos_fin2 = len(text2)
+    while pos_ini < pos_fin1 and pos_ini < pos_fin2 and text1[pos_fin1-1] == text2[pos_fin2-1]:
+        pos_fin1 -= 1
+        pos_fin2 -= 1
+
+    return text1[pos_ini:pos_fin1], text2[pos_ini:pos_fin2]
 
 
 ####################################################################################################
