@@ -11,7 +11,7 @@
     - Current version does not work recursively. If there's a .rst in a subfolder referencing the src file,
       this script will fail to detect it.
 
-      One of the implications: while it allows referencing with '/' (e.g. .. literalinclude:: /object.java), 
+      One of the implications: while it allows referencing with '/' (e.g. .. literalinclude:: /object.java),
       since it only considers .rst files at base_folder, it is always exactly
       the same as without (e.g. .. literalinclude:: object.java)
 
@@ -39,11 +39,11 @@ _STANDARD_SCAPE = "\033[0m"         # reset to normal color
 def main():
     options = parse_commandline_args()
     check_options(options)
-    changes = perform_renaming(**options)
+    changes = compute_changes(**options)
     print("XXX changes", changes)
 
 
-def perform_renaming(src, dst, base_folder, force):
+def compute_changes(src, dst, base_folder, force):
     """ performs the renaming of src to dst considering the base folder as containers
         of reStructuredText files that could make reference to src, and
         considering boolean force option to decide whether ask or not for confirmation """
@@ -72,9 +72,9 @@ def perform_renaming(src, dst, base_folder, force):
             lines = f.readlines()
         changes_in_file = check_rst_references(lines, src.relative_to(base_folder))
         if changes_in_file:
-            changes[rst] = expand_changes_on_contents(lines, changes_in_file, 
-                                                      src.relative_to(base_folder),
-                                                      dst.relative_to(base_folder))
+            changes[rst] = expand_changes_on_contents(lines, changes_in_file,
+                                                      str(src.relative_to(base_folder)),
+                                                      str(dst.relative_to(base_folder)))
     return changes
 
 ####################################################################################################
@@ -332,13 +332,35 @@ def expand_changes_on_contents(rstcontents, changes, src, dst):
         """ given the contents of a line, replaces the occurrence in position pos of src by dst.
             In case src's extension is .rst and it appears without extension at line, the replacement is without
             extension too """
-        return line[:pos] + dst + line[pos + len(dst):]
-        
+        if src.endswith('.rst'):    # it can appear without extension
+            src = src[:-4]
+            dst = dst[:-4]
+        return line[:pos] + dst + line[pos + len(src):]
+
 
     def create_representation(linesrc, linedst, src, dst):
         """ given the source and the renamed line, and the source and destination names of the file,
             it composes and returns a new line highlighting the changes """
-        return linesrc
+        if src.endswith('.rst'):    # it can appear without extension
+            src = src[:-4]
+            dst = dst[:-4]
+        linesrclist = list(linesrc)
+        linedstlist = list(linedst)
+        linereprlist = list()
+        srcpos = 0
+        dstpos = 0
+        while srcpos < len(linesrc):
+            if linesrclist[srcpos] == linedstlist[dstpos]:
+                linereprlist.append(linesrclist[srcpos])
+                srcpos += 1
+                dstpos += 1
+                continue
+            linereprlist.append(_HIGHLIGHT_ESCAPE)
+            linereprlist.append(dst)
+            linereprlist.append(_STANDARD_SCAPE)
+            srcpos += len(src)
+            dstpos += len(dst)
+        return "".join(linereprlist)
 
     expanded_changes = list()
     changed_lines = dict()
