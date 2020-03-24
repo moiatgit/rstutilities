@@ -31,6 +31,11 @@ import sys, os, re
 import argparse
 import pathlib
 
+# Scape sequences for colorize the output
+_HIGHLIGHT_ESCAPE = "\033[31;2m"    # colorize from this (red, bold)
+_STANDARD_SCAPE = "\033[0m"         # reset to normal color
+
+
 def main():
     options = parse_commandline_args()
     check_options(options)
@@ -65,7 +70,11 @@ def perform_renaming(src, dst, base_folder, force):
             continue
         with open(rst) as f:
             lines = f.readlines()
-        changes[rst] = check_rst_references(lines, src.relative_to(base_folder))
+        changes_in_file = check_rst_references(lines, src.relative_to(base_folder))
+        if changes_in_file:
+            changes[rst] = expand_changes_on_contents(lines, changes_in_file, 
+                                                      src.relative_to(base_folder),
+                                                      dst.relative_to(base_folder))
     return changes
 
 ####################################################################################################
@@ -304,6 +313,52 @@ def check_for_image_tag(tag, rstcontents, src, accept_absolute = True):
             continue    # there's something more after the tag
         changes.append((nr, pos_target))
     return changes
+
+
+def expand_changes_on_contents(rstcontents, changes, src, dst):
+    """
+        Given
+        - rstcontents: a list of lines of a valid rst file
+        - changes: a list of pairs (line, char) representing the points where a replacement must take place
+        - src: a pathlib.Path relative to the base_folder with the reference to the file to replace
+        - dst: a pathlib.Path relative to the base_folder with the reference to the destination file
+        it expads composes a list of expanded changes consisting on a dict with the following keys:
+        - linenr; the line number of the change
+        - src: the original contents of the line
+        - dst: the contents of the line once the replacements on it have took place
+        - repr: the representation of the changes with scape characters to highlight the changes
+    """
+    def replace_change(line, pos, src, dst):
+        """ given the contents of a line, replaces the occurrence in position pos of src by dst.
+            In case src's extension is .rst and it appears without extension at line, the replacement is without
+            extension too """
+        return line[:pos] + dst + line[pos + len(dst):]
+        
+
+    def create_representation(linesrc, linedst, src, dst):
+        """ given the source and the renamed line, and the source and destination names of the file,
+            it composes and returns a new line highlighting the changes """
+        return linesrc
+
+    expanded_changes = list()
+    changed_lines = dict()
+    for linenr, pos in changes:
+        if linenr in changed_lines:
+            expanded_change = changed_lines[linenr]
+            expanded_change['dst'] = replace_change(expanded_change['dst'], pos, src, dst)
+        else:
+            expanded_change = dict()
+            expanded_change['linenr'] = linenr
+            expanded_change['src'] = rstcontents[linenr]
+            expanded_change['dst'] = replace_change(expanded_change['src'], pos, src, dst)
+            changed_lines[linenr] = expanded_change
+
+    for expanded_change in changed_lines.values():
+        expanded_change['repr'] = create_representation(expanded_change['src'], expanded_change['dst'], src, dst)
+        print("XXX added", expanded_change)
+        expanded_changes.append(expanded_change)
+
+    return expanded_changes
 
 ####################################################################################################
 #   helping functions for each way of referencing a file
