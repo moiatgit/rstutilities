@@ -59,12 +59,14 @@ def perform_renaming(src, dst, base_folder, force):
         """ returns True if rst contains the name of the src file (no extension) """
         return src.stem in rst.read_text()
 
+    changes = dict()    # { file: list_of_changes }
     for rst in get_potential_rst(base_folder):
         if not quick_filter(rst, src):
             continue
         with open(rst) as f:
             lines = f.readlines()
-        return check_rst_references(lines, src.relative_to(base_folder))
+        changes[rst] = check_rst_references(lines, src.relative_to(base_folder))
+    return changes
 
 ####################################################################################################
 # Arguments processing
