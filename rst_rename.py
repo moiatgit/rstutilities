@@ -5,56 +5,66 @@
 
     It is git aware in the sense that, if the file to be renamed is in a git repo,
     it is renamed using git to ease control identification.
+
+    Limitations:
+
+    - Current version does not work recursively. If there's a .rst in a subfolder referencing the src file,
+      this script will fail to detect it.
+
+      One of the implications: while it allows referencing with '/' (e.g. .. literalinclude:: /object.java), 
+      since it only considers .rst files at base_folder, it is always exactly
+      the same as without (e.g. .. literalinclude:: object.java)
+
+    - Current version does not allow working git unaware. If the base folder is
+      in a git repository, it will rename using git mv instead of os.mv
+
+    - Current version does not deal with special splittings that seem to be valid in Sphinx. For example,
+        .. image::
+            object.png
+            :align: center
+
+      The exemple works in my current version of Sphinx but it is not supported by this script.
 """
 
-# XXX TODO: absolute references (/) are relative to the source directory. Relative references are relative to the rst file
-#           There's a first attempt to deal with it. Check function check_for_image_tag()
-# XXX TODO: allow specifying a recursive option to check within the subfolders of src
-# XXX TODO: add a non-git option to allow avoiding to be git aware
 
 import sys, os, re
 import argparse
 import pathlib
 
-if __name__ == "__main__":
-    main()
-
-
 def main():
     options = parse_commandline_args()
     check_options(options)
-    perform_renaming(**options)
+    changes = perform_renaming(**options)
+    print("XXX changes", changes)
 
 
-def perform_renaming(src, dst, folders, force):
-    """ performs the renaming of src to dst considering the folders as containers 
+def perform_renaming(src, dst, base_folder, force):
+    """ performs the renaming of src to dst considering the base folder as containers
         of reStructuredText files that could make reference to src, and
         considering boolean force option to decide whether ask or not for confirmation """
-    def get_potential_rst(folders):
-        """ given a list of pathlib folders, it 
-            generates the pathlib.Path of all the rst files in these folders """
-        for folder in folders:
-            for file in folder.glob("*.rst"):
-                yield file.resolve()
+    def get_potential_rst(folder):
+        """ given a folder, it
+            generates the pathlib.Path of all the rst files in the folder and all subfolders
+        """
+        for item in folder.iterdir():
+            if item.is_symlink():
+                continue            # symlinks are ignored to avoid potential infinite loops
+            if item.is_dir():
+                for subitem in get_potential_rst(item):
+                    yield subitem
+            elif item.is_file() and item.suffix == '.rst':
+                yield item
 
     def quick_filter(rst, src):
         """ returns True if rst contains the name of the src file (no extension) """
         return src.stem in rst.read_text()
 
-    for rst in get_potential_rst(folders):
+    for rst in get_potential_rst(base_folder):
         if not quick_filter(rst, src):
             continue
         with open(rst) as f:
             lines = f.readlines()
-        changes = check_rst_references(lines, 
-                                               src.relative_to(rst.parent),
-                                               dst.relative_to(rst.parent))
-    #XXX HERE!:
-    #    - consider removing the posibility to define more than one folder but for base path
-    #    - consider XXX for recursive option
-    #    - then prepare a function to show the changes if interactive (not forced)
-    #    - then perform the changes including renaming src file
-
+        return check_rst_references(lines, src.relative_to(base_folder))
 
 ####################################################################################################
 # Arguments processing
@@ -64,7 +74,8 @@ def parse_commandline_args():
     """ defines the arguments and returns a dict containing the options with
         the following normalization:
         * 'force': will always appear with the corresponding value
-        * 'src', 'dst': are converted to pathlib.Path
+        * 'src', 'dst' and 'base_folder': are converted to pathlib.Path
+        * 'base_folder' is set to src parent if not explicitly set by user
     """
     parser = argparse.ArgumentParser(
         description="Script that helps you to rename files and their references in rst folders")
@@ -74,11 +85,11 @@ def parse_commandline_args():
                         required=False)
     parser.add_argument("src", help="source file name (must exist)")
     parser.add_argument("dst", help="destination file name (must not exist)")
-    parser.add_argument("-d", "--source-directories",
-                        help="additional folders to check for rst files",
-                        dest='folders',
+    parser.add_argument("-b", "--base-dir",
+                        required=False,
+                        help="Base directory for the rst project",
+                        dest='base_folder',
                         type=str,
-                        nargs='*',
                         )
 
     args = parser.parse_args()
@@ -86,11 +97,10 @@ def parse_commandline_args():
     normalized_args.setdefault('force', False)
     for tag in ('src', 'dst'):
         normalized_args[tag] = pathlib.Path(normalized_args[tag]).resolve()
+    normalized_args['base_folder'] = (pathlib.Path(normalized_args['base_folder']).resolve()
+                                      if 'base_folder' in normalized_args
+                                      else normalized_args['src]'].parent)
 
-    normalized_args.setdefault('folders', list())
-    normalized_args['folders'].append(str(normalized_args['src'].parent))   # add src's directory
-    normalized_args['folders'] = list(set(normalized_args['folders']))      # remove dups
-    normalized_args['folders'] = [pathlib.Path(f) for f in normalized_args['folders']]
     return normalized_args
 
 def check_options(options):
@@ -105,13 +115,10 @@ def check_options(options):
         print("ERROR: destination file must not exist")
         sys.exit(1)
     resulting_folders = list()
-    # XXX folders should be in the path of src and dst
-    for folder in options['folders']:
-        if not folder.is_dir():
-            print("WARNING: ignoring non existing folder %s" % folder)
-            continue
-        resulting_folders.append(folder)
-    options['folders'] = resulting_folders
+    if (options['base_folder'] not in options['src'].parents or
+        options['base_folder'] not in options['dst'].parents):
+        print("ERROR: base folder must contain both source and destination")
+        sys.exit(1)
 
 
 ####################################################################################################
@@ -128,7 +135,7 @@ def check_line_for_caption(line, target):
         - the position where the target has been found (-1 if not found)
         - the position where to keep looking for further references
     """
-    pos_init_caption = line.find('<') 
+    pos_init_caption = line.find('<')
     if pos_init_caption < 0:
         reference_splitted = True
         target_pos = -1
@@ -238,7 +245,7 @@ def check_rst_references(rstcontents, src):
         in the same line.
 
         A reference to rst can appear in the following ways:
-        - the reference path are always relative to the rst. 
+        - the reference path are always relative to the rst.
           - when the reference starts with /, it means from the parent of the rst
           - otherwise it also means the same, so / at the beginning is superfluous
         - references can be:
@@ -267,10 +274,11 @@ def check_for_image_tag(tag, rstcontents, src, accept_absolute = True):
     """ given a image tag (e.g. '.. image::' or '.. figure::' it returns
         the lines in rstcontents containing a image reference to src.
 
-        XXX Note: As an unconfortable curiosity, the following contents are valid in Sphinx:
+        Note: As an unconfortable curiosity, the following contents are valid in Sphinx:
             .. figure::
                file.png
                :align: center
+
         For simplicity, this version of the script doesn't contemplate this case.
 
         The function returns a list of pairs of change localization
@@ -278,15 +286,12 @@ def check_for_image_tag(tag, rstcontents, src, accept_absolute = True):
     target = str(src)
     changes = []
     for nr, line in enumerate(rstcontents):
-        print(f"XXX checking line {nr} |{line}| for tag |{tag}|")
         if tag not in line:
             continue
         pos_tag = line.find(tag)
         if line[:pos_tag].strip():
             continue    # it's not a real tag probably within a comment
-        print("XXX tag found at pos", pos_tag)
         pos_target = line.find(target, pos_tag)
-        print(f"XXX target {target} results on {pos_target}")
         if pos_target < 0:
             continue    # a reference to another figure
         contents_between_tag_and_target = line[pos_tag + len(tag):pos_target].strip()
@@ -332,7 +337,7 @@ def look_for_toctrees(rstcontents, src):
         return list()       # non rst can't be in a toctree
     target = str(src)
     target_without_extension = target[:-4]
-    non_space = re.compile('\S')
+    non_space = re.compile(r'\S')
     tag = '.. toctree::'
     changes = list()
     in_toctree = False
@@ -354,6 +359,12 @@ def look_for_toctrees(rstcontents, src):
             changes.append((nr, m.start()))
 
     return changes
+
+
+####################################################################################################
+
+if __name__ == "__main__":
+    main()
 
 
 
