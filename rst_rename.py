@@ -40,7 +40,7 @@ def main():
     options = parse_commandline_args()
     check_options(options)
     changes = compute_changes(**options)
-    print("XXX changes", changes)
+    show_changes(changes, options['base_folder'])
 
 
 def compute_changes(src, dst, base_folder, force):
@@ -76,6 +76,15 @@ def compute_changes(src, dst, base_folder, force):
                                                       str(src.relative_to(base_folder)),
                                                       str(dst.relative_to(base_folder)))
     return changes
+
+def show_changes(changes, base_folder):
+    """ Given a list of changes, it shows them on stdout with paths relative to base_folder """
+    for path, expanded_changes in changes.items():
+        print(path.relative_to(base_folder))
+        for expanded_change in expanded_changes:
+            print("[%d];\t%s" % (expanded_change['linenr'], expanded_change['src']))
+            print("\t%s" % (expanded_change['repr']))
+            print()
 
 ####################################################################################################
 # Arguments processing

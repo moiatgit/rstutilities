@@ -32,6 +32,25 @@ def test_basic_change():
     assert expected[0]['dst'] == obtained[0]['dst']
     assert expected[0]['repr'] == obtained[0]['repr']
 
+def test_basic_change_with_shorter_renamed():
+    contents = ["objectwithlongname.png"]
+    changes = [(0, 0)]
+    src = 'objectwithlongname.png'
+    dst = 'renamed.png'
+    expected = [{
+        "linenr": 0,
+        "src": "objectwithlongname.png",
+        "dst": "renamed.png",
+        "repr": "%srenamed.png%s" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
+    }]
+    obtained = expand_changes_on_contents(contents, changes, src, dst)
+    assert 1 == len(obtained)
+    assert expected[0]['linenr'] == obtained[0]['linenr']
+    assert expected[0]['src'] == obtained[0]['src']
+    assert expected[0]['dst'] == obtained[0]['dst']
+    assert expected[0]['repr'] == obtained[0]['repr']
+
+
 def test_download_change():
     contents = ["line :download:`object.png` and so on"]
     changes = [(0, 16)]
@@ -106,4 +125,79 @@ def test_rst_ref_without_caption():
     assert expected[0]['dst'] == obtained[0]['dst']
     assert expected[0]['repr'] == obtained[0]['repr']
 
+
+def test_rst_ref_with_caption():
+    contents = ["And this is :ref:`caption <object>` witout caption"]
+    changes = [(0, 27)]
+    src = 'object.rst'
+    dst = 'renamed.rst'
+    expected = [{
+        "linenr": 0,
+        "src":  "And this is :ref:`caption <object>` witout caption",
+        "dst":  "And this is :ref:`caption <renamed>` witout caption",
+        "repr": "And this is :ref:`caption <%srenamed%s>` witout caption" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
+    }]
+    obtained = expand_changes_on_contents(contents, changes, src, dst)
+    assert 1 == len(obtained)
+    assert expected[0]['linenr'] == obtained[0]['linenr']
+    assert expected[0]['src'] == obtained[0]['src']
+    assert expected[0]['dst'] == obtained[0]['dst']
+    assert expected[0]['repr'] == obtained[0]['repr']
+
+
+def test_basic_change_with_same_path():
+    contents = ["_resources/object.png"]
+    changes = [(0, 0)]
+    src = '_resources/object.png'
+    dst = '_resources/renamed.png'
+    expected = [{
+        "linenr": 0,
+        "src": "_resources/object.png",
+        "dst": "_resources/renamed.png",
+        "repr": "_resources/%srenamed.png%s" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
+    }]
+    obtained = expand_changes_on_contents(contents, changes, src, dst)
+    assert 1 == len(obtained)
+    assert expected[0]['linenr'] == obtained[0]['linenr']
+    assert expected[0]['src'] == obtained[0]['src']
+    assert expected[0]['dst'] == obtained[0]['dst']
+    assert expected[0]['repr'] == obtained[0]['repr']
+
+
+def test_basic_change_with_different_path():
+    contents = ["_resources/object.png"]
+    changes = [(0, 0)]
+    src = '_resources/object.png'
+    dst = '_images/renamed.png'
+    expected = [{
+        "linenr": 0,
+        "src": "_resources/object.png",
+        "dst": "_images/renamed.png",
+        "repr": "%s_images/renamed.png%s" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
+    }]
+    obtained = expand_changes_on_contents(contents, changes, src, dst)
+    assert 1 == len(obtained)
+    assert expected[0]['linenr'] == obtained[0]['linenr']
+    assert expected[0]['src'] == obtained[0]['src']
+    assert expected[0]['dst'] == obtained[0]['dst']
+    assert expected[0]['repr'] == obtained[0]['repr']
+
+
+def test_basic_change_with_different_path_but_same_name():
+    contents = ["_resources/object.png"]
+    changes = [(0, 0)]
+    src = '_resources/object.png'
+    dst = '_images/object.png'
+    expected = [{
+        "linenr": 0,
+        "src": "_resources/object.png",
+        "dst": "_images/object.png",
+        "repr": "%s_images/%sobject.png" % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE),
+    }]
+    obtained = expand_changes_on_contents(contents, changes, src, dst)
+    assert 1 == len(obtained)
+    assert expected[0]['linenr'] == obtained[0]['linenr']
+    assert expected[0]['src'] == obtained[0]['src']
+    assert expected[0]['dst'] == obtained[0]['dst']
+    assert expected[0]['repr'] == obtained[0]['repr']
 
