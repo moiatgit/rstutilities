@@ -30,6 +30,7 @@
 import sys, os, re
 import argparse
 import pathlib
+import subprocess
 
 # Scape sequences for colorize the output
 _HIGHLIGHT_ESCAPE = "\033[31;2m"    # colorize from this (red, bold)
@@ -40,8 +41,19 @@ def main():
     options = parse_commandline_args()
     check_options(options)
     changes = compute_changes(**options)
-    show_changes(changes, options['base_folder'])
-
+    if changes:
+        show_changes(changes, options['base_folder'])
+        confirmed = ask_for_confirmation(options['force'])
+        if confirmed:
+            perform_changes(changes)
+            rename_src(options['src'], options['dst'])
+        else:
+            print("No changes performed")
+    else:
+        print("No references found. Only the file %s will be renamed" % src.relative_to(options['base_folder']))
+        confirmed = ask_for_confirmation(options['force'])
+        if confirmed:
+            rename_src(options['src'], options['dst'])
 
 def compute_changes(src, dst, base_folder, force):
     """ performs the renaming of src to dst considering the base folder as containers
@@ -85,6 +97,30 @@ def show_changes(changes, base_folder):
             print("[%d];\t%s" % (expanded_change['linenr'], expanded_change['src']))
             print("\t%s" % (expanded_change['repr']))
             print()
+
+def perform_changes(changes):
+    """ Given a list of changes it performs them on the corresponding files """
+    for path, expanded_changes in changes.items():
+        with open(path) as f:
+            lines = f.readlines()
+        for change in expanded_changes:
+            lines[change['linenr']] = change['dst']
+        with open(path, "w") as f:
+            f.write("\n".join(lines))
+        print("XXX now {%s} will contain\n%s" % (path, '\n'.join(lines)))
+
+
+def rename_src(src, dst):
+    """ performs the renaming depending on whether src is or not in a git repository
+        It assumes src and dst belong to the same git repository """
+
+    if is_git_repository(src.parent):
+        git_mv(src, dst)
+        print("File renamed with git")
+    else:
+        src.rename(dst)
+        print("File renamed")
+
 
 ####################################################################################################
 # Arguments processing
@@ -485,6 +521,63 @@ def clean_commonalities(text1, text2):
         pos_fin2 -= 1
 
     return text1[pos_ini:pos_fin1], text2[pos_ini:pos_fin2]
+
+
+def ask_for_confirmation(force):
+    """ it asks for confirmation of the changes from stdin and returns the answer
+        if force, it returns directly True without asking """
+    if force:
+        return True
+    response = input("Type exactly %syes%s if you want to perform these changes. Anything otherwise: " % (_HIGHLIGHT_ESCAPE, _STANDARD_SCAPE))
+    return response == 'yes'
+
+def run_easy(cmd, folder=None, timeout=None):
+    """ runs a command and returns the standard output and the standard error.
+        In case a folder is specified, the command is executed in the defined
+        folder and, once done, it returns to the original folder
+    """
+    prev_cwd = pathlib.Path.cwd()
+    folder = folder if folder else prev_cwd
+    os.chdir(folder)
+    cmd = f'timeout {timeout} {cmd}' if timeout else cmd
+    cmd = 'env LANG=C.UTF-8 ' + cmd   # run it in english to unify output messages
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    stdout, stderr = process.communicate()
+    os.chdir(prev_cwd)
+    try:
+        out = stdout.decode('utf8')
+        err = stderr.decode('utf8')
+    except UnicodeDecodeError as e:
+        logging.warning("run_easy(cmd:%s): it wasn't possible to decode as UTF8 on command output"%cmd)
+        out = stdout.decode("utf8", "replace")
+        err = stderr.decode("utf8", "replace")
+    finally:
+        if process.returncode != 0:
+            if process.returncode == 124:
+                err += 'Process stopped by timeout'
+            else:
+                err += f'\nProcess finished with return code {process.returncode}'
+        process.stdout.close()
+        process.stderr.close()
+    return out, err
+
+
+def is_git_repository(path):
+    """ returns True when path corresponds to a git repository """
+    cmd = 'git status'
+    out_msg, err_msg = run_easy(cmd, path)
+    return 'fatal:' not in err_msg
+
+def git_mv(src, dst):
+    """ renames src to dst """
+    folder = src.parent
+    cmd = f'git mv "{src}" "{dst}"'
+    print("XXX cmd", cmd)
+    out_msg, err_msg = run_easy(cmd, folder)
+    print("XXX result of moving")
+    print("XXX\t ", out_msg)
+    print("XXX\t ", err_msg)
+
 
 
 ####################################################################################################
