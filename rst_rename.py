@@ -50,7 +50,7 @@ def main():
         else:
             print("No changes performed")
     else:
-        print("No references found. Only the file %s will be renamed" % src.relative_to(options['base_folder']))
+        print("No references found. Only the file %s will be renamed" % options['src'].relative_to(options['base_folder']))
         confirmed = ask_for_confirmation(options['force'])
         if confirmed:
             rename_src(options['src'], options['dst'])
@@ -107,14 +107,13 @@ def perform_changes(changes):
             lines[change['linenr']] = change['dst']
         with open(path, "w") as f:
             f.write("\n".join(lines))
-        print("XXX now {%s} will contain\n%s" % (path, '\n'.join(lines)))
+    print("Renamed references")
 
 
 def rename_src(src, dst):
     """ performs the renaming depending on whether src is or not in a git repository
         It assumes src and dst belong to the same git repository """
-
-    if is_git_repository(src.parent):
+    if is_file_in_git(src.parent):
         git_mv(src, dst)
         print("File renamed with git")
     else:
@@ -155,7 +154,7 @@ def parse_commandline_args():
         normalized_args[tag] = pathlib.Path(normalized_args[tag]).resolve()
     normalized_args['base_folder'] = (pathlib.Path(normalized_args['base_folder']).resolve()
                                       if 'base_folder' in normalized_args
-                                      else normalized_args['src]'].parent)
+                                      else normalized_args['src'].parent)
 
     return normalized_args
 
@@ -422,7 +421,6 @@ def expand_changes_on_contents(rstcontents, changes, src, dst):
 
     for expanded_change in changed_lines.values():
         expanded_change['repr'] = create_representation(expanded_change['src'], expanded_change['dst'], src, dst)
-        print("XXX added", expanded_change)
         expanded_changes.append(expanded_change)
 
     return expanded_changes
@@ -562,17 +560,16 @@ def run_easy(cmd, folder=None, timeout=None):
     return out, err
 
 
-def is_git_repository(path):
-    """ returns True when path corresponds to a git repository """
-    cmd = 'git status'
+def is_file_in_git(path):
+    """ returns True when path has a commit in a git repository """
+    cmd = f'git log {path}'
     out_msg, err_msg = run_easy(cmd, path)
-    return 'fatal:' not in err_msg
+    return 'fatal:' not in err_msg and out_msg
 
 def git_mv(src, dst):
     """ renames src to dst """
     folder = src.parent
     cmd = f'git mv "{src}" "{dst}"'
-    print("XXX cmd", cmd)
     out_msg, err_msg = run_easy(cmd, folder)
     print("XXX result of moving")
     print("XXX\t ", out_msg)
