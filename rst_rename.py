@@ -94,8 +94,8 @@ def show_changes(changes, base_folder):
     for path, expanded_changes in changes.items():
         print(path.relative_to(base_folder))
         for expanded_change in expanded_changes:
-            print("[%d];\t%s" % (expanded_change['linenr'], expanded_change['src']))
-            print("\t%s" % (expanded_change['repr']))
+            print("[%d];\t%s" % (expanded_change['linenr'], expanded_change['src'].strip('\n')))
+            print("\t%s" % (expanded_change['repr'].strip('\n')))
             print()
 
 def perform_changes(changes):
@@ -106,7 +106,7 @@ def perform_changes(changes):
         for change in expanded_changes:
             lines[change['linenr']] = change['dst']
         with open(path, "w") as f:
-            f.write("\n".join(lines))
+            f.write("".join(lines))
     print("Renamed references")
 
 
@@ -571,10 +571,9 @@ def git_mv(src, dst):
     folder = src.parent
     cmd = f'git mv "{src}" "{dst}"'
     out_msg, err_msg = run_easy(cmd, folder)
-    print("XXX result of moving")
-    print("XXX\t ", out_msg)
-    print("XXX\t ", err_msg)
-
+    print(cmd)
+    if out_msg: print("\t", out_msg)
+    if err_msg: print("\t ", err_msg)
 
 
 ####################################################################################################
