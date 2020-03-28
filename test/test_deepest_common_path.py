@@ -2,8 +2,8 @@
     pytest: tests the functioning of rst_ls_unref.deepest_common_path()
 """
 import pathlib
-from rst_ls_unref import deepest_common_path
-from rst_ls_unref import pathlib
+from rstutils import deepest_common_path
+from rstutils import pathlib
 
 ####################################################################################################
 
