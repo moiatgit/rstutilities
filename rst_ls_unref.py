@@ -18,22 +18,34 @@ import rstutils
 def main():
     options = parse_commandline_args()
     check_options(options)
-    print("XXX once checked, options", options)
-    #changes = compute_changes(**options)
-    #if changes:
-    #    show_changes(changes, options['base_folder'])
-    #    confirmed = ask_for_confirmation(options['force'])
-    #    if confirmed:
-    #        perform_changes(changes)
-    #        rename_src(options['src'], options['dst'])
-    #    else:
-    #        print("No changes performed")
-    #else:
-    #    print("No references found. Only the file %s will be renamed" % options['src'].relative_to(options['base_folder']))
-    #    confirmed = ask_for_confirmation(options['force'])
-    #    if confirmed:
-    #        rename_src(options['src'], options['dst'])
+    unreferenced = check_unreferenced(**options)
+    if unreferenced:
+        print("List of unreferenced files:")
+        for path in unreferenced:
+            print("\t", path.relative_to(options['base_folder']))
+    else:
+        print("All files are referenced")
 
+def check_unreferenced(paths, base_folder):
+    """ given a list of paths and a base folder containing the rst files, it
+        returns the list of paths that are referenced by any rst file in the base folder """
+    referenced = list()
+    checked_files = list()
+    items = paths[:]
+    while items:
+        item = items.pop()
+        if item .is_symlink():
+            continue            # symlinks are ignored to avoid potential infinite loops
+        if item .is_dir():
+            items.extend(list(item .iterdir()))
+            continue
+        checked_files.append(item)
+        path = item.relative_to(base_folder)
+        for rst in rstutils.get_rst_in_folder(base_folder):
+            if rstutils.seek_references_in_file(rst, path):
+                referenced.append(base_folder / path)
+                break
+    return [path for path in checked_files if path not in referenced]
 
 def parse_commandline_args():
     """ defines the arguments and returns a dict containing the options with
@@ -75,7 +87,6 @@ def check_options(options):
         - in case options['base_folder'] is provided, it is not an ancestor of all the paths
         In case base_folder is not provided, it is set to the deepest common path of all the paths
     """
-    print("XXX check_options()", options)
     if any(not path.exists() for path in options['paths']):
         print("ERROR: all the paths must exist")
         sys.exit(1)

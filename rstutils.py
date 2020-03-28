@@ -37,14 +37,14 @@ def get_rst_in_folder(folder):
         elif item.is_file() and item.suffix == '.rst':
             yield item
 
-def seek_references_in_file(rstpath, target, base_folder):
+def seek_references_in_file(rstpath, target):
     """ seeks in the contents of the rstpath for the target (both pathlib.Path)
         It returns a list of pairs (line, pos) of all the references of target in rstpath.  """
     if not target.stem in rstpath.read_text():  # quick filter
         return []
     with open(rstpath) as f:
         lines = f.readlines()
-    return check_rst_references(lines, target.relative_to(base_folder))
+    return check_rst_references(lines, target)
 
 ####################################################################################################
 #   Check references

@@ -67,7 +67,7 @@ def seek_references(src, dst, base_folder):
     """
     changes = dict()    # { file: list_of_changes }
     for rst in rstutils.get_rst_in_folder(base_folder):
-        changes_in_file = rstutils.seek_references_in_file(rst, src, base_folder)
+        changes_in_file = rstutils.seek_references_in_file(rst, src.relative_to(base_folder))
         if changes_in_file:
             with open(rst) as f:
                 lines = f.readlines()
