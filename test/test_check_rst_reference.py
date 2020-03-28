@@ -153,22 +153,22 @@ def test_when_referenced_by_an_image():
                 ]
     src = pathlib.Path('object.java')
     dst = pathlib.Path('renamed.png')
-    expected = [(2, 11)]
+    expected = [(2, 20)]
     obtained = check_rst_references(contents, src)
     assert set(expected) == set(obtained)
 
 
-def test_when_referenced_by_an_absolute_image():
+def test_when_referenced_by_an_absolute_literalinclude():
     contents = ["A real reference with image",
                 "",
-                ".. literalinclude:: /object.png",
+                ".. literalinclude:: /object.java",
                 "   :align: center",
                 "",
                 "And other things",
                 ]
-    src = pathlib.Path('object.png')
-    dst = pathlib.Path('renamed.png')
-    expected = [(2, 12)]
+    src = pathlib.Path('object.java')
+    dst = pathlib.Path('renamed.java')
+    expected = [(2, 21)]
     obtained = check_rst_references(contents, src)
     assert set(expected) == set(obtained)
 
