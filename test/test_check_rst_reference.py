@@ -2,7 +2,7 @@
     pytest: tests the functioning of rst_rename.check_rst_references()
 """
 import pathlib
-from rst_rename import check_rst_references
+from rstutils import check_rst_references
 
 ####################################################################################################
 
