@@ -56,9 +56,13 @@ def main():
             rename_src(options['src'], options['dst'])
 
 def compute_changes(src, dst, base_folder, force):
-    """ performs the renaming of src to dst considering the base folder as containers
-        of reStructuredText files that could make reference to src, and
-        considering boolean force option to decide whether ask or not for confirmation """
+    """ composes the changes to be performed on the rst files 
+        The result is a list of dicts with the following keys:
+        - linenr; the line number of the change
+        - src: the original contents of the line
+        - dst: the contents of the line once the replacements on it have took place
+        - repr: the representation of the changes with scape characters to highlight the changes
+    """
     def get_potential_rst(folder):
         """ given a folder, it
             generates the pathlib.Path of all the rst files in the folder and all subfolders
