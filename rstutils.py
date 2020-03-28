@@ -20,6 +20,21 @@ def deepest_common_path(paths):
         common_paths = common_paths.intersection(parents)
     return max(common_paths)
 
+def get_rst_in_folder(folder):
+    """ given a folder, it
+        generates the pathlib.Path of all the rst files in the folder and all subfolders
+
+        Note: currently the recursive option is disabled (commented out)
+    """
+    for item in folder.iterdir():
+        if item.is_symlink():
+            continue            # symlinks are ignored to avoid potential infinite loops
+        if item.is_dir():
+            continue            # non recursive yet
+        #    for subitem in get_potential_rst(item):
+        #        yield subitem
+        elif item.is_file() and item.suffix == '.rst':
+            yield item
 
 
 if __name__ == "__main__":

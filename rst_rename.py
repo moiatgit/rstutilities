@@ -32,6 +32,8 @@ import argparse
 import pathlib
 import subprocess
 
+import rstutils
+
 # Scape sequences for colorize the output
 _HIGHLIGHT_ESCAPE = "\033[31;2m"    # colorize from this (red, bold)
 _STANDARD_SCAPE = "\033[0m"         # reset to normal color
@@ -40,7 +42,7 @@ _STANDARD_SCAPE = "\033[0m"         # reset to normal color
 def main():
     options = parse_commandline_args()
     check_options(options)
-    changes = compute_changes(**options)
+    changes = seek_references(**options)
     if changes:
         show_changes(changes, options['base_folder'])
         confirmed = ask_for_confirmation(options['force'])
@@ -55,7 +57,7 @@ def main():
         if confirmed:
             rename_src(options['src'], options['dst'])
 
-def compute_changes(src, dst, base_folder, force):
+def seek_references(src, dst, base_folder, force):
     """ composes the changes to be performed on the rst files 
         The result is a list of dicts with the following keys:
         - linenr; the line number of the change
@@ -63,31 +65,31 @@ def compute_changes(src, dst, base_folder, force):
         - dst: the contents of the line once the replacements on it have took place
         - repr: the representation of the changes with scape characters to highlight the changes
     """
-    def get_potential_rst(folder):
-        """ given a folder, it
-            generates the pathlib.Path of all the rst files in the folder and all subfolders
-        """
-        for item in folder.iterdir():
-            if item.is_symlink():
-                continue            # symlinks are ignored to avoid potential infinite loops
-            if item.is_dir():
-                for subitem in get_potential_rst(item):
-                    yield subitem
-            elif item.is_file() and item.suffix == '.rst':
-                yield item
-
     def quick_filter(rst, src):
         """ returns True if rst contains the name of the src file (no extension) """
         return src.stem in rst.read_text()
 
-    changes = dict()    # { file: list_of_changes }
-    for rst in get_potential_rst(base_folder):
-        if not quick_filter(rst, src):
-            continue
+    def seek_references_in_file(rstpath, target, base_folder):
+        """ seeks in the contents of the rstpath for the target (both pathlib.Path)
+            It returns a list of pairs (line, pos) of all the references of target in rstpath.  """
+        # quick filter
+        if not target.stem in rst.read_text():
+            return []
         with open(rst) as f:
             lines = f.readlines()
-        changes_in_file = check_rst_references(lines, src.relative_to(base_folder))
+        return check_rst_references(lines, src.relative_to(base_folder))
+
+    changes = dict()    # { file: list_of_changes }
+    for rst in rstutils.get_rst_in_folder(base_folder):
+        #if not quick_filter(rst, src):
+        #    continue
+        #with open(rst) as f:
+        #    lines = f.readlines()
+        #changes_in_file = check_rst_references(lines, src.relative_to(base_folder))
+        changes_in_file = seek_references_in_file(rst, src, base_folder)
         if changes_in_file:
+            with open(rst) as f:
+                lines = f.readlines()
             changes[rst] = expand_changes_on_contents(lines, changes_in_file,
                                                       str(src.relative_to(base_folder)),
                                                       str(dst.relative_to(base_folder)))
@@ -112,6 +114,7 @@ def perform_changes(changes):
         with open(path, "w") as f:
             f.write("".join(lines))
     print("Renamed references")
+
 
 
 def rename_src(src, dst):
