@@ -14,10 +14,7 @@ def deepest_common_path(paths):
     """
     if not paths:
         return pathlib.Path('/')
-    print("XXX paths[0]", paths[0])
-    print("XXX paths[0].is_dir()", paths[0].is_dir())
     common_paths = set((paths[0] / '_').parents if paths[0].is_dir() else paths[0].parents)
-    print("XXX common_paths", common_paths)
     for path in paths[1:]:
         parents = set((path / '_').parents if path.is_dir() else path.parents)
         common_paths = common_paths.intersection(parents)
