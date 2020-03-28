@@ -65,28 +65,9 @@ def seek_references(src, dst, base_folder, force):
         - dst: the contents of the line once the replacements on it have took place
         - repr: the representation of the changes with scape characters to highlight the changes
     """
-    def quick_filter(rst, src):
-        """ returns True if rst contains the name of the src file (no extension) """
-        return src.stem in rst.read_text()
-
-    def seek_references_in_file(rstpath, target, base_folder):
-        """ seeks in the contents of the rstpath for the target (both pathlib.Path)
-            It returns a list of pairs (line, pos) of all the references of target in rstpath.  """
-        # quick filter
-        if not target.stem in rst.read_text():
-            return []
-        with open(rst) as f:
-            lines = f.readlines()
-        return check_rst_references(lines, src.relative_to(base_folder))
-
     changes = dict()    # { file: list_of_changes }
     for rst in rstutils.get_rst_in_folder(base_folder):
-        #if not quick_filter(rst, src):
-        #    continue
-        #with open(rst) as f:
-        #    lines = f.readlines()
-        #changes_in_file = check_rst_references(lines, src.relative_to(base_folder))
-        changes_in_file = seek_references_in_file(rst, src, base_folder)
+        changes_in_file = rstutils.seek_references_in_file(rst, src, base_folder)
         if changes_in_file:
             with open(rst) as f:
                 lines = f.readlines()
