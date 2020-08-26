@@ -24,6 +24,11 @@
             :align: center
 
       The exemple works in my current version of Sphinx but it is not supported by this script.
+
+      XXX Known issues:
+      - problems for multiline references e.g. 
+        this is a :doc:`reference
+            <herethereference>` splitted in two lines.
 """
 
 
@@ -42,20 +47,28 @@ _STANDARD_SCAPE = "\033[0m"         # reset to normal color
 def main():
     options = parse_commandline_args()
     check_options(options)
-    changes = seek_references(options['src'], options['dst'], options['base_folder'])
+    rename(options['src'],
+           options['dst'],
+           options['base_folder'],
+           options['force']
+           )
+
+def rename(src, dst, base_folder, force):
+    changes = seek_references(src, dst, base_folder)
     if changes:
-        show_changes(changes, options['base_folder'])
-        confirmed = ask_for_confirmation(options['force'])
+        show_changes(changes, base_folder)
+        confirmed = ask_for_confirmation(force)
         if confirmed:
             perform_changes(changes)
-            rename_src(options['src'], options['dst'])
+            rename_src(src, dst)
         else:
             print("No changes performed")
     else:
-        print("No references found. Only the file %s will be renamed" % options['src'].relative_to(options['base_folder']))
-        confirmed = ask_for_confirmation(options['force'])
+        print("No references found. Only the file %s will be renamed" % 'src'.relative_to(base_folder))
+        confirmed = ask_for_confirmation(force)
         if confirmed:
-            rename_src(options['src'], options['dst'])
+            rename_src(src, dst)
+
 
 def seek_references(src, dst, base_folder):
     """ composes the changes to be performed on the rst files 
