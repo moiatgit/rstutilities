@@ -32,10 +32,11 @@
 """
 
 
-import sys, os, re
+import os
+import sys
 import argparse
-import pathlib
 import subprocess
+from pathlib import Path
 
 import rstutils
 
@@ -53,7 +54,7 @@ def main():
            options['force']
            )
 
-def rename(src, dst, base_folder, force):
+def rename(src: Path, dst: Path, base_folder: Path, force: bool):
     changes = seek_references(src, dst, base_folder)
     if changes:
         show_changes(changes, base_folder)
@@ -64,13 +65,13 @@ def rename(src, dst, base_folder, force):
         else:
             print("No changes performed")
     else:
-        print("No references found. Only the file %s will be renamed" % 'src'.relative_to(base_folder))
+        print("No references found. Only the file %s will be renamed" % src.relative_to(base_folder))
         confirmed = ask_for_confirmation(force)
         if confirmed:
             rename_src(src, dst)
 
 
-def seek_references(src, dst, base_folder):
+def seek_references(src: Path, dst: Path, base_folder: Path):
     """ composes the changes to be performed on the rst files 
         The result is a list of dicts with the following keys:
         - linenr; the line number of the change
@@ -130,7 +131,7 @@ def parse_commandline_args():
     """ defines the arguments and returns a dict containing the options with
         the following normalization:
         * 'force': will always appear with the corresponding value
-        * 'src', 'dst' and 'base_folder': are converted to pathlib.Path
+        * 'src', 'dst' and 'base_folder': are converted to Path
         * 'base_folder' is set to src parent if not explicitly set by user
     """
     parser = argparse.ArgumentParser(
@@ -152,8 +153,8 @@ def parse_commandline_args():
     normalized_args = { k:v for k,v in vars(args).items() if v }
     normalized_args.setdefault('force', False)
     for tag in ('src', 'dst'):
-        normalized_args[tag] = pathlib.Path(normalized_args[tag]).resolve()
-    normalized_args['base_folder'] = (pathlib.Path(normalized_args['base_folder']).resolve()
+        normalized_args[tag] = Path(normalized_args[tag]).resolve()
+    normalized_args['base_folder'] = (Path(normalized_args['base_folder']).resolve()
                                       if 'base_folder' in normalized_args
                                       else normalized_args['src'].parent)
 
@@ -210,8 +211,8 @@ def expand_changes_on_contents(rstcontents, changes, src, dst):
         Given
         - rstcontents: a list of lines of a valid rst file
         - changes: a list of pairs (line, char) representing the points where a replacement must take place
-        - src: a pathlib.Path relative to the base_folder with the reference to the file to replace
-        - dst: a pathlib.Path relative to the base_folder with the reference to the destination file
+        - src: a Path relative to the base_folder with the reference to the file to replace
+        - dst: a Path relative to the base_folder with the reference to the destination file
         it expads composes a list of expanded changes consisting on a dict with the following keys:
         - linenr; the line number of the change
         - src: the original contents of the line
@@ -299,7 +300,7 @@ def run_easy(cmd, folder=None, timeout=None):
         In case a folder is specified, the command is executed in the defined
         folder and, once done, it returns to the original folder
     """
-    prev_cwd = pathlib.Path.cwd()
+    prev_cwd = Path.cwd()
     folder = folder if folder else prev_cwd
     os.chdir(folder)
     cmd = f'timeout {timeout} {cmd}' if timeout else cmd
@@ -307,11 +308,12 @@ def run_easy(cmd, folder=None, timeout=None):
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     stdout, stderr = process.communicate()
     os.chdir(prev_cwd)
+    err = ""
     try:
         out = stdout.decode('utf8')
         err = stderr.decode('utf8')
     except UnicodeDecodeError as e:
-        logging.warning("run_easy(cmd:%s): it wasn't possible to decode as UTF8 on command output"%cmd)
+        print("run_easy(cmd:%s): it wasn't possible to decode as UTF8 on command output"%cmd)
         out = stdout.decode("utf8", "replace")
         err = stderr.decode("utf8", "replace")
     finally:
@@ -340,11 +342,7 @@ def git_mv(src, dst):
     if out_msg: print("\t", out_msg)
     if err_msg: print("\t ", err_msg)
 
-
 ####################################################################################################
 
 if __name__ == "__main__":
     main()
-
-
-
